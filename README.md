@@ -126,6 +126,8 @@ filter: [status]
 
 **Each card**
 
+All card field values are frontmatter property names. Dotted paths work everywhere (`customFields.serves`, `nested.key`).
+
 | Key        | Type             | Renders                                                                                                                                                                             |
 | ---------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `title`    | field            | Bold title (falls back to the file name).                                                                                                                                           |
@@ -192,6 +194,7 @@ filter: [horizon, kind, status]
 - **Titles only** — toggle the toolbar button to hide each card's subtitle, meta, bars, and labels, leaving just the title.
 - **+ / −** on a card — collapse / expand its subtree.
 - **⟨ / ☰** — collapse the toolbar to a single button (and expand it back) when it gets in the way.
+- **?** — open the quick-reference help dialog.
 - **⛶** — fullscreen. **Reset** — clear filters/search/collapse/focus and refit.
 - **Drag** to pan, **scroll** to zoom.
 
