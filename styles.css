@@ -415,10 +415,11 @@
   flex: 1 1 200px;
 }
 .mm-note-linklabel {
-  color: var(--text-muted);
+  color: var(--text-normal);
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  font-size: 9.5px;
+  font-size: 10.5px;
+  font-weight: 600;
 }
 .mm-link-row {
   display: flex;

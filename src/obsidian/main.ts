@@ -1213,17 +1213,22 @@ class NoteModal extends Modal {
     ).forEach(([label, rel]) => {
       const rows = this.links.filter((l) => l.relation === rel);
       if (!rows.length) return;
+      // when every row in the group shares one level, hoist it into the header
+      // (PARENTS · DRIVERS) so the per-row title gets the full width
+      const lvls = new Set(rows.map((l) => l.levelLabel));
+      const sharedLvl = lvls.size === 1 ? [...lvls][0] : null;
       const grp = wrapEl.createDiv({ cls: "mm-note-linkgroup" });
       grp.createDiv({
         cls: "mm-note-linklabel",
-        text: `${label} (${rows.length})`,
+        text: `${label}${sharedLvl ? ` · ${sharedLvl}` : ""} (${rows.length})`,
       });
       rows.forEach((l) => {
         const btn = grp.createEl("button", {
           cls: "mm-link-row" + (l.secondary ? " mm-link-sec" : ""),
         });
         btn.style.setProperty("--mm-accent", l.color);
-        btn.createSpan({ cls: "mm-link-lvl", text: l.levelLabel });
+        if (!sharedLvl)
+          btn.createSpan({ cls: "mm-link-lvl", text: l.levelLabel });
         btn.createSpan({ cls: "mm-link-title", text: l.title });
         if (l.secondary) btn.createSpan({ cls: "mm-link-tag", text: "also" });
         btn.onclick = () => {
