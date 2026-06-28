@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as yaml from "js-yaml";
+import { randomUUID } from "node:crypto";
 import {
   MapCfg,
   NoteLike,
@@ -150,14 +151,22 @@ async function openMap(context: vscode.ExtensionContext) {
     "markdownMindmap",
     payload.title,
     vscode.ViewColumn.Active,
-    { enableScripts: true, retainContextWhenHidden: true }
+    {
+      enableScripts: true,
+      retainContextWhenHidden: true,
+      // only the bundled webview script is ever loaded; keep the webview off the rest of the disk
+      localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "dist")],
+    }
   );
   const scriptUri = panel.webview.asWebviewUri(
     vscode.Uri.joinPath(context.extensionUri, "dist", "webview.js")
   );
   panel.webview.html = htmlShell(panel.webview, scriptUri, payload);
   panel.webview.onDidReceiveMessage((msg) => {
-    if (msg?.type === "open" && fsPathByRel[msg.path]) {
+    if (
+      msg?.type === "open" &&
+      Object.prototype.hasOwnProperty.call(fsPathByRel, msg.path)
+    ) {
       vscode.window.showTextDocument(vscode.Uri.file(fsPathByRel[msg.path]), {
         preview: false,
       });
@@ -188,9 +197,7 @@ function htmlShell(
   scriptUri: vscode.Uri,
   payload: MapPayload
 ): string {
-  const nonce = Buffer.from(String(Date.now()) + Math.random())
-    .toString("base64")
-    .replace(/[^a-zA-Z0-9]/g, "");
+  const nonce = randomUUID().replace(/-/g, "");
   const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource};`;
   // JSON is valid JS, so assign it directly; escape < so a string value can't close the <script> tag
   const data = JSON.stringify(payload).replace(/</g, "\\u003c");
