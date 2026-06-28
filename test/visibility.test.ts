@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { collectNodes, buildEdges, computeVisible, passesFilters } from "../src/graph";
+import {
+  collectNodes,
+  buildEdges,
+  computeVisible,
+  focusVisible,
+  passesFilters,
+} from "../src/graph";
 import type { MapCfg } from "../src/graph";
 import { mk, resolverFor } from "./fixtures";
 
@@ -34,6 +40,25 @@ const chainNotes = [
 ];
 
 const NONE = {} as Record<string, Set<string>>;
+
+describe("focusVisible", () => {
+  it("keeps the focused node, its primary ancestors, and its primary descendant subtree", () => {
+    const nodes = buildChain();
+    const vis = focusVisible(nodes, "p/P1.md");
+
+    expect([...vis].sort()).toEqual(
+      ["g/G.md", "p/P1.md", "t/T1.md", "t/T2.md"].sort()
+    );
+  });
+
+  it("treats null or unknown focus ids as no focus", () => {
+    const nodes = buildChain();
+    const allIds = Object.keys(nodes).sort();
+
+    expect([...focusVisible(nodes, null)].sort()).toEqual(allIds);
+    expect([...focusVisible(nodes, "p/Missing.md")].sort()).toEqual(allIds);
+  });
+});
 
 describe("computeVisible — collapse", () => {
   it("collapsing a node hides its primary subtree but keeps the node itself", () => {
@@ -122,8 +147,8 @@ describe("computeVisible — filters", () => {
     const filters = { status: new Set(["wip", "done"]) };
     const vis = computeVisible(nodes, new Set(), filters, chainCfg);
     // every status-bearing node matches one of the two values; nothing hidden by filter
-    ["p/P1.md", "p/P2.md", "t/T1.md", "t/T2.md", "t/T3.md", "g/G.md"].forEach((id) =>
-      expect(vis.has(id)).toBe(true),
+    ["p/P1.md", "p/P2.md", "t/T1.md", "t/T2.md", "t/T3.md", "g/G.md"].forEach(
+      (id) => expect(vis.has(id)).toBe(true)
     );
   });
 
@@ -135,7 +160,11 @@ describe("computeVisible — filters", () => {
     const notes = [
       mk("i/Match.md", { title: "Match", status: "wip", team: "core" }),
       mk("i/WrongTeam.md", { title: "WrongTeam", status: "wip", team: "ops" }),
-      mk("i/WrongStatus.md", { title: "WrongStatus", status: "done", team: "core" }),
+      mk("i/WrongStatus.md", {
+        title: "WrongStatus",
+        status: "done",
+        team: "core",
+      }),
     ];
     const { nodes, byLevel } = collectNodes(cfg, notes);
     buildEdges(cfg, nodes, byLevel, resolverFor(notes));
@@ -163,9 +192,14 @@ describe("computeVisible — filters", () => {
 });
 
 describe("passesFilters — unit", () => {
-  const cfg: MapCfg = { levels: [{ id: "x", from: "x" }], filter: ["status", "team"] };
+  const cfg: MapCfg = {
+    levels: [{ id: "x", from: "x" }],
+    filter: ["status", "team"],
+  };
   const node = (fm: Record<string, any>) => {
-    const { nodes, byLevel } = collectNodes(cfg, [mk("x/N.md", { title: "N", ...fm })]);
+    const { nodes, byLevel } = collectNodes(cfg, [
+      mk("x/N.md", { title: "N", ...fm }),
+    ]);
     buildEdges(cfg, nodes, byLevel, resolverFor([]));
     return nodes["x/N.md"];
   };
@@ -176,22 +210,34 @@ describe("passesFilters — unit", () => {
 
   it("passes when the node lacks the filtered property even though a selection exists", () => {
     // node has no `status` => that property does not constrain it
-    expect(passesFilters(node({ team: "core" }), { status: new Set(["done"]) }, cfg)).toBe(true);
+    expect(
+      passesFilters(node({ team: "core" }), { status: new Set(["done"]) }, cfg)
+    ).toBe(true);
   });
 
   it("fails when the node has the property and matches no selected value", () => {
-    expect(passesFilters(node({ status: "wip" }), { status: new Set(["done"]) }, cfg)).toBe(false);
+    expect(
+      passesFilters(node({ status: "wip" }), { status: new Set(["done"]) }, cfg)
+    ).toBe(false);
   });
 
   it("matches wikilink-valued properties by their resolved key", () => {
     // fieldArr runs values through linkKey, so the selection holds the bare key, not "[[Goal A]]"
     const n = node({ status: "[[Goal A]]" });
     expect(passesFilters(n, { status: new Set(["Goal A"]) }, cfg)).toBe(true);
-    expect(passesFilters(n, { status: new Set(["[[Goal A]]"]) }, cfg)).toBe(false);
+    expect(passesFilters(n, { status: new Set(["[[Goal A]]"]) }, cfg)).toBe(
+      false
+    );
   });
 
   it("a property absent from cfg.filter is ignored even if a selection is passed", () => {
     // `priority` is not in cfg.filter => never consulted
-    expect(passesFilters(node({ priority: "low" }), { priority: new Set(["high"]) }, cfg)).toBe(true);
+    expect(
+      passesFilters(
+        node({ priority: "low" }),
+        { priority: new Set(["high"]) },
+        cfg
+      )
+    ).toBe(true);
   });
 });

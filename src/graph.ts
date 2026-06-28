@@ -436,6 +436,35 @@ export function computeVisible(
   return vis;
 }
 
+// Focus is a pure tree filter over primary layout links. Null, empty, or stale
+// ids mean no focus, so callers can clear stale UI state without hiding the map.
+export function focusVisible(
+  nodes: Record<string, MNode>,
+  id: string | null | undefined
+): Set<string> {
+  const all = new Set(Object.keys(nodes));
+  if (!id || !nodes[id]) return all;
+
+  const vis = new Set<string>();
+  const seenAncestors = new Set<string>();
+  let current: string | null = id;
+  while (current && nodes[current] && !seenAncestors.has(current)) {
+    vis.add(current);
+    seenAncestors.add(current);
+    current = nodes[current].primaryParent;
+  }
+
+  const stack = [...primKids(nodes, id)];
+  while (stack.length) {
+    const child = stack.pop()!;
+    if (!nodes[child] || vis.has(child)) continue;
+    vis.add(child);
+    stack.push(...primKids(nodes, child));
+  }
+
+  return vis;
+}
+
 // ---- ordering + layout ---------------------------------------------------
 
 // DFS by primary parent so siblings stay contiguous, then place right->left so a
