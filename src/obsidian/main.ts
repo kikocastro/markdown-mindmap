@@ -434,6 +434,7 @@ function renderMindmap(
     (cfg.filter || []).forEach((p) => filters[p].clear());
     updateFilterChips();
     syncViewControls();
+    renderFocusTicket();
     draw();
     fit();
   };
@@ -444,6 +445,30 @@ function renderMindmap(
     attr: { title: "Mindmap help" },
   });
   helpBtn.onclick = () => new HelpModal(app).open();
+
+  // focus ticket: a chip showing the active focus. Focus persists (panning/clicking
+  // no longer drops it); only this ✕ clears it, so dialogs stay openable while focused.
+  const focusTicket = toolbar.createEl("button", {
+    cls: "mm-focus-ticket",
+    attr: { title: "Clear focus" },
+  });
+  focusTicket.onclick = () => setFocus(null);
+  function renderFocusTicket() {
+    if (focused && nodes[focused]) {
+      focusTicket.setText(`Focus: ${nodes[focused].title}  ✕`);
+      focusTicket.style.display = "";
+    } else {
+      focusTicket.style.display = "none";
+    }
+  }
+  function setFocus(id: string | null) {
+    focused = id;
+    selected = null;
+    renderFocusTicket();
+    draw();
+    fit();
+  }
+  renderFocusTicket();
 
   const stage = wrapEl.createDiv({ cls: "mm-stage" });
   const svg = svgEl("svg", {}, stage) as SVGSVGElement;
@@ -549,12 +574,7 @@ function renderMindmap(
       linksFor(n),
       fileByPath[n.path],
       openNode,
-      (focusId) => {
-        focused = focusId;
-        selected = null;
-        draw();
-        fit();
-      },
+      (focusId) => setFocus(focusId),
       cfg.properties === true
     ).open();
   }
@@ -889,14 +909,10 @@ function renderMindmap(
     },
     { passive: false }
   );
+  // background click clears only the sticky highlight; focus stays until its ticket ✕
   stage.addEventListener("click", () => {
-    const hadFocus = focused != null;
-    focused = null;
     selected = null;
-    if (hadFocus) {
-      draw();
-      fit();
-    } else reapply();
+    reapply();
   });
 
   const remembered = activeState.get(ctx.sourcePath);

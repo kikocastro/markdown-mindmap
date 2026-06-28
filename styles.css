@@ -155,6 +155,19 @@
   background: transparent;
   color: var(--text-muted);
 }
+.mm-toolbar .mm-focus-ticket {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mm-toolbar .mm-focus-ticket:hover {
+  background: var(--interactive-accent-hover);
+  color: var(--text-on-accent);
+}
 .mm-icon {
   font-size: 14px;
   line-height: 1;
