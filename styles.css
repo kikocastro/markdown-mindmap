@@ -211,6 +211,9 @@
   background: var(--interactive-accent-hover);
   color: var(--text-on-accent);
 }
+.mm-toolbar .mm-focus-ticket.mm-hidden {
+  display: none;
+}
 .mm-focus-label {
   flex: 1 1 auto;
   min-width: 0;

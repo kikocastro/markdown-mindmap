@@ -125,7 +125,7 @@ function renderMindmap(
   // ---- DOM scaffold ----
   host.empty();
   const wrapEl = host.createDiv({ cls: "mm-wrap" });
-  if (cfg.height) wrapEl.style.height = cfg.height + "px";
+  if (cfg.height) wrapEl.setCssStyles({ height: cfg.height + "px" });
   const toolbar = wrapEl.createDiv({ cls: "mm-toolbar" });
   // header row: title left, collapse control right. The whole rail collapses to just
   // this header (see .mm-bar-collapsed), so the toggle lives inside it.
@@ -159,7 +159,7 @@ function renderMindmap(
   // focus banner: a dismissible chip at the top of the rail showing the active focus.
   // Focus persists (panning/clicking no longer drops it); only the ✕ clears it.
   const focusTicket = toolbar.createEl("button", {
-    cls: "mm-focus-ticket",
+    cls: "mm-focus-ticket mm-hidden",
     attr: { title: "Clear focus" },
   });
   const focusLabel = focusTicket.createSpan({ cls: "mm-focus-label" });
@@ -475,12 +475,9 @@ function renderMindmap(
 
   // focus ticket lives at the top of the rail (built right after the search box).
   function renderFocusTicket() {
-    if (focused && nodes[focused]) {
-      focusLabel.setText(`Focus: ${nodes[focused].title}`);
-      focusTicket.style.display = "";
-    } else {
-      focusTicket.style.display = "none";
-    }
+    const node = focused != null ? nodes[focused] : undefined;
+    if (node) focusLabel.setText(`Focus: ${node.title}`);
+    focusTicket.toggleClass("mm-hidden", !node);
   }
   function setFocus(id: string | null) {
     focused = id;
