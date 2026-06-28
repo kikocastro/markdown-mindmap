@@ -177,6 +177,7 @@ filter: [horizon, kind, status]
 - **Hover** a card — highlight its full up/down lineage.
 - **Click** a card — open a dialog: title + file name, level badge, progress/demand breakdown, its **linked parents, siblings, and children** (click one to jump the dialog there), optional frontmatter properties, the rendered note, "Open note", and "Focus".
 - **Focus** from a card dialog — show that node, its ancestors, and its primary descendants; click empty map space to clear focus.
+- **Titles only** — toggle the toolbar button to hide each card's subtitle, meta, bars, and labels, leaving just the title.
 - **+ / −** on a card — collapse / expand its subtree.
 - **⛶** — fullscreen. **Reset** — clear filters/search/collapse/focus and refit.
 - **Drag** to pan, **scroll** to zoom.

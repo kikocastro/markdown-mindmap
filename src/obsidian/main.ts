@@ -115,6 +115,10 @@ function renderMindmap(
   const view = { x: 20, y: 8, k: 1 };
   let selected: string | null = null;
   let focused: string | null = null;
+  // hide sub/meta/bars/labels on cards, show only the title.
+  // ponytail: card heights come from orderAndLayout (core), which still reserves the label
+  // strip, so label-bearing cards stay 24px taller in this mode. Recompute layout per-toggle if it bugs you.
+  let titleOnly = false;
 
   // One initial layout pass gives filterOptions real x/y positions for toolbar order.
   orderAndLayout(
@@ -255,6 +259,15 @@ function renderMindmap(
   }
 
   toolbar.createSpan({ cls: "mm-spacer" });
+  const titlesBtn = toolbar.createEl("button", {
+    text: "Titles only",
+    attr: { title: "Show only node titles" },
+  });
+  titlesBtn.onclick = () => {
+    titleOnly = !titleOnly;
+    titlesBtn.toggleClass("on", titleOnly);
+    draw();
+  };
   const fsBtn = toolbar.createEl("button", {
     cls: "mm-icon",
     text: "⛶",
@@ -552,7 +565,7 @@ function renderMindmap(
       order[li].forEach((id) => {
         const n = nodes[id];
         const hasKids = n.children.size > 0;
-        const hasBar = n.progress != null || n.bars.length > 0;
+        const hasBar = !titleOnly && (n.progress != null || n.bars.length > 0);
         const g = svgEl("g", { class: "mm-node" }, nodeLayer);
         svgEl(
           "rect",
@@ -571,7 +584,7 @@ function renderMindmap(
 
         // text block: padded from top/bottom, with bars/labels reserved at the bottom
         const padR = hasKids ? 42 : 16;
-        const labelH = n.labels.length ? 24 : 0;
+        const labelH = !titleOnly && n.labels.length ? 24 : 0;
         const barH = hasBar ? 20 : 0;
         const textPadTop = 14;
         const textPadBottom = 14;
@@ -587,7 +600,7 @@ function renderMindmap(
         titleWrapped.forEach((t) =>
           lines.push({ t, cls: "mm-t1", size: 12, lh: 16 })
         );
-        if (n.sub) {
+        if (!titleOnly && n.sub) {
           if (n.sub.length > 46) truncated = true;
           lines.push({
             t: n.sub.length > 46 ? n.sub.slice(0, 45) + "…" : n.sub,
@@ -596,7 +609,7 @@ function renderMindmap(
             lh: 15,
           });
         }
-        if (n.meta)
+        if (!titleOnly && n.meta)
           lines.push({ t: n.meta, cls: "mm-meta", size: 9.5, lh: 14 });
         const totalH = lines.reduce((s, b) => s + b.lh, 0);
         const firstSize = lines[0]?.size || 12;

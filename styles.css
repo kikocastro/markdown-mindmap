@@ -22,16 +22,19 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 10px;
-  padding: 6px 8px;
+  gap: 6px 8px;
+  padding: 7px 10px;
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   font-size: 12px;
 }
 .mm-toolbar .mm-title {
-  font-weight: 700;
-  margin-right: 4px;
+  font-weight: 600;
+  padding-right: 10px;
+  margin-right: 2px;
+  border-right: 1px solid var(--background-modifier-border);
 }
 .mm-spacer {
   flex: 1 1 auto;
@@ -39,76 +42,107 @@
 
 .mm-search {
   font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 4px 9px;
+  border-radius: 7px;
   background: var(--background-primary);
   color: var(--text-normal);
   border: 1px solid var(--background-modifier-border);
-  min-width: 130px;
+  min-width: 150px;
+}
+.mm-search:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
 }
 
-/* multiselect filter: a labelled group of toggle chips */
+/* multiselect filter: a labelled group of toggle chips.
+   Each group sits behind a faint pill so it reads as one unit, with a divider before it. */
 .mm-fltgroup {
   display: flex;
   align-items: center;
   gap: 4px;
+  padding: 2px 6px 2px 0;
+  margin-left: 4px;
+  border-left: 1px solid var(--background-modifier-border);
+  padding-left: 10px;
 }
 .mm-fltlabel {
-  color: var(--text-muted);
+  color: var(--text-faint);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  font-size: 9.5px;
+  letter-spacing: 0.6px;
+  font-size: 9px;
+  font-weight: 600;
   margin-right: 2px;
 }
-.mm-chip {
+.mm-toolbar .mm-chip {
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 20px;
+  line-height: 1.5;
   cursor: pointer;
-  background: var(--background-primary);
+  background: transparent;
   color: var(--text-muted);
   border: 1px solid var(--background-modifier-border);
 }
-.mm-chip:hover {
+.mm-toolbar .mm-chip:hover {
   background: var(--background-modifier-hover);
+  color: var(--text-normal);
 }
-.mm-chip.on {
+.mm-toolbar .mm-chip.on {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   border-color: var(--interactive-accent);
+  font-weight: 500;
 }
 .mm-viewgroup {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-left: 4px;
+  padding-left: 10px;
+  border-left: 1px solid var(--background-modifier-border);
 }
 .mm-viewselect {
   min-width: 112px;
   max-width: 180px;
   font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 4px 9px;
+  border-radius: 7px;
   background: var(--background-primary);
   color: var(--text-normal);
   border: 1px solid var(--background-modifier-border);
 }
 
+/* Action buttons (Save / Edit / Delete / Reset) recede: ghost until hovered, so filter chips lead the eye. */
 .mm-toolbar button {
   font-size: 12px;
-  padding: 3px 9px;
-  border-radius: 6px;
+  padding: 4px 9px;
+  border-radius: 7px;
   cursor: pointer;
-  background: var(--background-primary);
-  color: var(--text-normal);
-  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
 }
 .mm-toolbar button:hover {
   background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.mm-toolbar button.on {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+.mm-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.mm-toolbar button:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
 }
 .mm-icon {
   font-size: 14px;
   line-height: 1;
-  padding: 3px 8px;
+  padding: 4px 8px;
 }
 
 .mm-stage {
