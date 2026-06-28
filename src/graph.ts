@@ -42,6 +42,7 @@ export interface LayoutCfg {
   rowGap?: number;
   top?: number;
   titleLines?: number;
+  subLines?: number;
 }
 export interface ResolvedLayout {
   cardW: number;
@@ -50,6 +51,7 @@ export interface ResolvedLayout {
   vGap: number;
   top: number;
   titleLines: number;
+  subLines: number;
 }
 export const resolveLayout = (l?: LayoutCfg): ResolvedLayout => ({
   cardW: l?.cardWidth ?? CARD_W,
@@ -58,6 +60,7 @@ export const resolveLayout = (l?: LayoutCfg): ResolvedLayout => ({
   vGap: l?.rowGap ?? V_GAP,
   top: l?.top ?? TOP,
   titleLines: l?.titleLines ?? 2, // node-title lines before truncating (set 3 for a taller card)
+  subLines: l?.subLines ?? 1, // subtitle lines before truncating (set 2+ to wrap the sub)
 });
 
 // bar chart: a field-name string (legacy) or an object with category mode + colours
@@ -183,18 +186,25 @@ export const wrap = (
 // ponytail: these numbers are duplicated as draw constants in the adapters; if you
 // retune card spacing, change both. cardHeight config acts as a minimum floor.
 export const MIN_H = 44;
+// sub line sits below the collapse toggle, so it gets the full text width (only the
+// left/right text padding reserved), unlike the title which reserves padR for the toggle.
+export const subWidth = (cardW: number) => cardW - 14 - 16;
 export const cardContentHeight = (
   n: MNode,
   cardW: number,
-  titleLines: number
+  titleLines: number,
+  subLines: number
 ): number => {
   const padR = n.children.size > 0 ? 42 : 16;
   const tLines = wrap(n.title, cardW - 14 - padR, 12, titleLines).length || 1;
+  const sLines = n.sub
+    ? wrap(n.sub, subWidth(cardW), 10.5, subLines).length || 1
+    : 0;
   const hasBar = n.progress != null || n.bars.length > 0;
   return (
     14 +
     tLines * 16 +
-    (n.sub ? 15 : 0) +
+    sLines * 15 +
     (n.meta ? 14 : 0) +
     (hasBar ? 20 : 0) +
     (n.labels.length ? 24 : 0) +
@@ -545,6 +555,7 @@ export function orderAndLayout(
     vGap,
     top: TOP,
     titleLines,
+    subLines,
   } = resolveLayout(cfg.layout);
   const floor = cfg.layout?.cardHeight ?? MIN_H;
   const levelX = cfg.levels.map((_, i) => 40 + i * (cardW + colGap));
@@ -581,7 +592,7 @@ export function orderAndLayout(
         .filter((c) => visN(c) && nodes[c].levelIdx === li + 1)
         .map((c) => nodes[c]);
       n.w = cardW;
-      n.h = Math.max(floor, cardContentHeight(n, cardW, titleLines));
+      n.h = Math.max(floor, cardContentHeight(n, cardW, titleLines, subLines));
       n.x = levelX[li];
       if (kids.length) {
         const top = Math.min(...kids.map((k) => k.y!)),

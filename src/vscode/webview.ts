@@ -1,4 +1,4 @@
-import { wrap } from "../graph";
+import { wrap, subWidth } from "../graph";
 import { MapPayload, VNode } from "./payload";
 
 // Webview renderer: pure SVG drawing from the host-computed payload. No graph
@@ -157,13 +157,12 @@ data.nodes.forEach((n) => {
     lines.push({ t, cls: "mm-t1", size: 12, lh: 16 })
   );
   if (n.sub) {
-    if (n.sub.length > 46) truncated = true;
-    lines.push({
-      t: n.sub.length > 46 ? n.sub.slice(0, 45) + "…" : n.sub,
-      cls: "mm-t2",
-      size: 10.5,
-      lh: 15,
-    });
+    const subWrapped = wrap(n.sub, subWidth(n.w), 10.5, data.subLines);
+    if (subWrapped.join(" ").length < n.sub.replace(/\s+/g, " ").trim().length)
+      truncated = true;
+    subWrapped.forEach((t) =>
+      lines.push({ t, cls: "mm-t2", size: 10.5, lh: 15 })
+    );
   }
   if (n.meta) lines.push({ t: n.meta, cls: "mm-meta", size: 9.5, lh: 14 });
   const totalH = lines.reduce((s, b) => s + b.lh, 0);

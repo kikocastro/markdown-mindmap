@@ -140,6 +140,7 @@ async function openMap(context: vscode.ExtensionContext) {
   const payload: MapPayload = {
     title: cfg.title || "Markdown Mindmap",
     titleLines: resolveLayout(cfg.layout).titleLines,
+    subLines: resolveLayout(cfg.layout).subLines,
     nodes: vNodes,
     edges,
     headers,

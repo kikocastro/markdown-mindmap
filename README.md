@@ -112,6 +112,7 @@ filter: [status]
 | `rowGap`     | `12`    | Vertical gap between stacked cards.                                                                                              |
 | `top`        | `64`    | Top margin before the first card.                                                                                                |
 | `titleLines` | `2`     | Title lines shown before truncating. Set `3` to allow longer titles; cards grow to fit automatically.                            |
+| `subLines`   | `1`     | Subtitle (`sub`) lines shown before truncating. Set `2`+ to wrap a long subtitle onto multiple lines; cards grow to fit.         |
 
 **Each level**
 

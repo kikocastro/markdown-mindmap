@@ -30,6 +30,7 @@ import {
   upsertView,
   viewNameTaken,
   wrap,
+  subWidth,
   validateConfig,
 } from "../graph";
 
@@ -105,7 +106,7 @@ function renderMindmap(
 ) {
   const cfg = parseYaml(source) as MapCfg;
   validateConfig(cfg);
-  const titleLines = resolveLayout(cfg.layout).titleLines; // node-title lines before truncation
+  const { titleLines, subLines } = resolveLayout(cfg.layout); // lines shown before truncation
 
   // adapt the vault to the pure layer: plain NoteLike data + a TFile lookup for the modal
   const fileByPath: Record<string, TFile> = {};
@@ -685,13 +686,15 @@ function renderMindmap(
           lines.push({ t, cls: "mm-t1", size: 12, lh: 16 })
         );
         if (!titleOnly && n.sub) {
-          if (n.sub.length > 46) truncated = true;
-          lines.push({
-            t: n.sub.length > 46 ? n.sub.slice(0, 45) + "…" : n.sub,
-            cls: "mm-t2",
-            size: 10.5,
-            lh: 15,
-          });
+          const subWrapped = wrap(n.sub, subWidth(n.w!), 10.5, subLines);
+          if (
+            subWrapped.join(" ").length <
+            n.sub.replace(/\s+/g, " ").trim().length
+          )
+            truncated = true;
+          subWrapped.forEach((t) =>
+            lines.push({ t, cls: "mm-t2", size: 10.5, lh: 15 })
+          );
         }
         if (!titleOnly && n.meta)
           lines.push({ t: n.meta, cls: "mm-meta", size: 9.5, lh: 14 });
@@ -1063,23 +1066,31 @@ filter: [status]
 - **card** — which fields render on the card
 
 ### Each card
+Field values are frontmatter property names; dotted paths work everywhere (\`customFields.serves\`).
 - **title** — bold title (falls back to file name)
-- **sub** — subtitle line
+- **sub** — subtitle line (single line by default; set \`layout.subLines: 2\`+ to wrap it)
 - **meta** — list of fields, muted \`·\`-joined line
 - **progress** — a 0–100 field as a progress bar
-- **bars** — a list field as a stacked count-by-category bar
+- **bars** — a list field as a stacked count-by-category bar (or a map: \`{ field, category, colors }\`)
 - **labels** — list of fields shown as coloured pills
 
 ### Each edge
 - **from** / **to** — level ids
-- **via** — frontmatter field holding the link (on the **to** notes by default)
+- **via** — frontmatter field holding the link (on the **to** notes by default; dotted paths work)
 - **reverse: true** — field lives on the **from** notes and points down
 - **secondary: true** — draw dashed, keep out of the layout spine
 
 ### Interactions
-Search to spotlight · filter chips · save views · hover for lineage · click a card
-for its dialog · **+ / −** collapse a subtree · **⛶** fullscreen · **Reset** ·
-drag to pan, scroll to zoom.
+- **Search** — spotlight matching cards, dim the rest
+- **Filter chips** — multi-select per property (OR within, AND across)
+- **Saved views** — save / apply / edit / delete a filter combination
+- **Hover** a card — highlight its full up/down lineage
+- **Click** a card — dialog with its linked parents, siblings, and children (click to jump), properties, and the rendered note
+- **Focus** (from the dialog) — show a node, its ancestors, and primary descendants; persists until you click empty map space to clear
+- **Titles only** — hide subtitle/meta/bars/labels, leaving just titles
+- **+ / −** — collapse / expand a subtree
+- **⟨ / ☰** — collapse the toolbar to a single button, or expand it back
+- **⛶** fullscreen · **Reset** clears filters/search/collapse/focus · drag to pan, scroll to zoom
 
 [Full documentation on GitHub →](https://github.com/kikocastro/markdown-mindmap#readme)
 `;

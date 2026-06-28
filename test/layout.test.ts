@@ -230,6 +230,7 @@ describe("resolveLayout", () => {
       vGap: V_GAP,
       top: TOP,
       titleLines: 2,
+      subLines: 1,
     });
   });
 
@@ -241,12 +242,18 @@ describe("resolveLayout", () => {
       vGap: 4,
       top: TOP,
       titleLines: 2,
+      subLines: 1,
     });
   });
 
   it("defaults titleLines to 2 and honours an override", () => {
     expect(resolveLayout(undefined).titleLines).toBe(2);
     expect(resolveLayout({ titleLines: 3 }).titleLines).toBe(3);
+  });
+
+  it("defaults subLines to 1 and honours an override", () => {
+    expect(resolveLayout(undefined).subLines).toBe(1);
+    expect(resolveLayout({ subLines: 3 }).subLines).toBe(3);
   });
 });
 
@@ -324,6 +331,20 @@ describe("orderAndLayout — layout config", () => {
       }),
     ]).nodes["g/B.md"];
     expect(b.h!).toBeGreaterThan(a.h!);
+  });
+
+  it("grows the card when the sub wraps to more lines via subLines", () => {
+    const cfg: MapCfg = {
+      levels: [{ id: "g", from: "g", card: { title: "title", sub: "note" } }],
+      layout: { subLines: 3 },
+    };
+    const longSub =
+      "time to access an agent, time to an accurate answer, time to a decision";
+    const one = layout(cfg, [mk("g/A.md", { title: "A", note: "short" })])
+      .nodes["g/A.md"];
+    const many = layout(cfg, [mk("g/B.md", { title: "B", note: longSub })])
+      .nodes["g/B.md"];
+    expect(many.h!).toBeGreaterThan(one.h!);
   });
 });
 

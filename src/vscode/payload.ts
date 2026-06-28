@@ -35,6 +35,7 @@ export interface VHeader {
 export interface MapPayload {
   title: string;
   titleLines: number;
+  subLines: number;
   nodes: VNode[];
   edges: VEdge[];
   headers: VHeader[];
