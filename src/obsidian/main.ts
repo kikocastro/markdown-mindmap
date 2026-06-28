@@ -306,7 +306,7 @@ function renderMindmap(
     draw();
   };
   const fsBtn = toolbar.createEl("button", {
-    text: "⛶ Fullscreen",
+    text: "Fullscreen",
     attr: { title: "Fullscreen" },
   });
   fsBtn.onclick = () => {

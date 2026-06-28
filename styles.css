@@ -136,6 +136,7 @@
   background: transparent;
   color: var(--text-muted);
   border: 1px solid transparent;
+  box-shadow: none;
 }
 .mm-toolbar button:hover {
   background: var(--background-modifier-hover);
@@ -158,6 +159,18 @@
   font-size: 14px;
   line-height: 1;
   padding: 4px 8px;
+}
+/* help reads as a faint grey link, not a button */
+.mm-toolbar button.mm-help {
+  align-self: flex-start;
+  padding: 2px 0;
+  font-size: 11px;
+  color: var(--text-faint);
+  text-decoration: underline;
+}
+.mm-toolbar button.mm-help:hover {
+  background: transparent;
+  color: var(--text-muted);
 }
 
 .mm-stage {
