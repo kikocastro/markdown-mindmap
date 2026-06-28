@@ -6,6 +6,18 @@ Point it at some folders, tell it which frontmatter field links each note to its
 
 It ships as **two adapters over one shared core** (`src/graph.ts`): the **Obsidian plugin** (the full experience described below, rendered inline in a note) and a **VS Code extension** (a command opens the map in a panel — see [VS Code](#vs-code)). The feature list below describes the Obsidian plugin; the VS Code adapter is intentionally minimal for now (render + pan/zoom + click-to-open).
 
+## Screenshots
+
+![Overview — map with sidebar filters](assets/screenshot-overview.png)
+
+| Card dialog                                                                                             | Hover lineage                                                                    |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| ![Card dialog showing parents, siblings, children and rendered note](assets/screenshot-card-dialog.png) | ![Hover highlighting a node's full lineage](assets/screenshot-hover-lineage.png) |
+
+| Saved views                                                                | Search highlight                                                    | Titles only                                            |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
+| ![Save current filters as a named view](assets/screenshot-saved-views.png) | ![Search spotlighting matching cards](assets/screenshot-search.png) | ![Titles-only mode](assets/screenshot-titles-only.png) |
+
 ## Features
 
 - **Live from frontmatter.** Folders become columns; frontmatter links become edges. Add or remove a note and the map updates.
