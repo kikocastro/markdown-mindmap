@@ -4,6 +4,7 @@ import {
   MarkdownPostProcessorContext,
   MarkdownRenderer,
   Modal,
+  Notice,
   Plugin,
   TFile,
   parseYaml,
@@ -81,6 +82,20 @@ const svgEl = (
 
 // ---- core ----------------------------------------------------------------
 
+// Persisting a view rewrites the note, so Obsidian re-renders the block and tears down
+// the fullscreen element, dropping us out of fullscreen. We flag the source path before
+// the write and the fresh render re-enters fullscreen on its new wrapEl.
+const reenterFullscreen = new Set<string>();
+
+// The active view + filter selection, so a save keeps its filters applied (the persist
+// re-render would otherwise reset them) and returning to a note reopens its last view.
+// ponytail: in-memory, keyed by sourcePath; resets on Obsidian restart, collides if a note
+// has two mindmap blocks. Persist to plugin data if either bites.
+const activeState = new Map<
+  string,
+  { view: string; filters: Record<string, string[]> }
+>();
+
 function renderMindmap(
   app: App,
   plugin: Plugin,
@@ -131,6 +146,9 @@ function renderMindmap(
   host.empty();
   const wrapEl = host.createDiv({ cls: "mm-wrap" });
   if (cfg.height) wrapEl.style.height = cfg.height + "px";
+  // re-enter fullscreen after a persist-triggered re-render (see reenterFullscreen)
+  if (reenterFullscreen.delete(ctx.sourcePath))
+    requestAnimationFrame(() => wrapEl.requestFullscreen().catch(() => {}));
   const toolbar = wrapEl.createDiv({ cls: "mm-toolbar" });
   // collapse the toolbar to a single button so it stops covering the map; stays as the first child
   const barToggle = toolbar.createEl("button", {
@@ -203,12 +221,16 @@ function renderMindmap(
     const saveView = views.createEl("button", { text: "Save current as…" });
     saveView.onclick = async () => {
       // Electron has no window.prompt, so a Modal is the only way to read a name.
-      const name = await promptText(app, "Save current filters as a view");
+      const name = await promptText(
+        app,
+        "Save current filters as a view",
+        defaultViewName()
+      );
       if (!name?.trim()) return;
       const cleanName = name.trim();
       if (
         viewNameTaken(savedViews, cleanName) &&
-        !window.confirm(`Replace the saved view "${cleanName}"?`)
+        !(await confirmModal(app, `Replace the saved view "${cleanName}"?`))
       )
         return;
       const nextViews = upsertView(savedViews, {
@@ -218,6 +240,7 @@ function renderMindmap(
       try {
         await persistViews(nextViews);
         selectedView = cleanName;
+        rememberActive(); // keep this view active across the persist re-render
         syncViewControls();
       } catch (e) {
         reportViewError(e);
@@ -235,7 +258,7 @@ function renderMindmap(
       if (!name?.trim()) return;
       const cleanName = name.trim();
       if (viewNameTaken(savedViews, cleanName, current.name)) {
-        window.alert(`A saved view named "${cleanName}" already exists.`);
+        new Notice(`A saved view named "${cleanName}" already exists.`);
         return;
       }
       const nextViews = savedViews.map((v) =>
@@ -246,25 +269,28 @@ function renderMindmap(
       try {
         await persistViews(nextViews);
         selectedView = cleanName;
+        rememberActive();
         syncViewControls();
       } catch (e) {
         reportViewError(e);
       }
     };
     deleteViewBtn = views.createEl("button", { text: "Delete" });
-    deleteViewBtn.onclick = () => {
+    deleteViewBtn.onclick = async () => {
       const current = savedViews.find((v) => v.name === selectedView);
       if (
         !current ||
-        !window.confirm(`Delete the saved view "${current.name}"?`)
+        !(await confirmModal(app, `Delete the saved view "${current.name}"?`))
       )
         return;
-      persistViews(savedViews.filter((v) => v.name !== current.name))
-        .then(() => {
-          selectedView = "";
-          syncViewControls();
-        })
-        .catch(reportViewError);
+      try {
+        await persistViews(savedViews.filter((v) => v.name !== current.name));
+        selectedView = "";
+        rememberActive();
+        syncViewControls();
+      } catch (e) {
+        reportViewError(e);
+      }
     };
     syncViewControls();
   }
@@ -280,8 +306,7 @@ function renderMindmap(
     draw();
   };
   const fsBtn = toolbar.createEl("button", {
-    cls: "mm-icon",
-    text: "⛶",
+    text: "⛶ Fullscreen",
     attr: { title: "Fullscreen" },
   });
   fsBtn.onclick = () => {
@@ -301,6 +326,23 @@ function renderMindmap(
       if (values.length) snapshot[prop] = values;
     });
     return snapshot;
+  }
+
+  function rememberActive() {
+    activeState.set(ctx.sourcePath, {
+      view: selectedView,
+      filters: currentFilterSnapshot(),
+    });
+  }
+
+  // default a new view's name to its enabled filters, e.g. "Quarter: Q1, Q2 · Stage: Now"
+  function defaultViewName(): string {
+    return Object.entries(currentFilterSnapshot())
+      .map(
+        ([prop, vals]) =>
+          `${cfg.filterLabels?.[prop] ?? prop}: ${vals.join(", ")}`
+      )
+      .join(" · ");
   }
 
   function updateFilterChips() {
@@ -365,24 +407,19 @@ function renderMindmap(
     else delete nextCfg.views;
     const nextBlock = ["```mindmap", stringifyYaml(nextCfg).trimEnd(), "```"];
     lines.splice(range.start, range.end - range.start + 1, ...nextBlock);
+    if (document.fullscreenElement === wrapEl)
+      reenterFullscreen.add(ctx.sourcePath);
     await app.vault.modify(file, lines.join(eol));
     savedViews = nextViews;
     cfg.views = nextViews.length ? nextViews : undefined;
   }
 
   function reportViewError(e: unknown) {
-    window.alert(
+    new Notice(
       "Could not update mindmap views:\n" +
         (e instanceof Error ? e.message : String(e))
     );
   }
-
-  const helpBtn = toolbar.createEl("button", {
-    cls: "mm-icon",
-    text: "?",
-    attr: { title: "Mindmap help" },
-  });
-  helpBtn.onclick = () => new HelpModal(app).open();
 
   const resetBtn = toolbar.createEl("button", { text: "Reset" });
   resetBtn.onclick = () => {
@@ -392,12 +429,21 @@ function renderMindmap(
     selectedView = "";
     searchTerm = "";
     search.value = "";
+    titleOnly = false;
+    titlesBtn.toggleClass("on", false);
     (cfg.filter || []).forEach((p) => filters[p].clear());
     updateFilterChips();
     syncViewControls();
     draw();
     fit();
   };
+
+  const helpBtn = toolbar.createEl("button", {
+    cls: "mm-help",
+    text: "Help",
+    attr: { title: "Mindmap help" },
+  });
+  helpBtn.onclick = () => new HelpModal(app).open();
 
   const stage = wrapEl.createDiv({ cls: "mm-stage" });
   const svg = svgEl("svg", {}, stage) as SVGSVGElement;
@@ -691,6 +737,7 @@ function renderMindmap(
 
     apply();
     reapply();
+    rememberActive();
   }
 
   // small value pills along the card's bottom strip; drops any that don't fit on one row.
@@ -852,7 +899,13 @@ function renderMindmap(
     } else reapply();
   });
 
-  draw();
+  const remembered = activeState.get(ctx.sourcePath);
+  if (remembered) {
+    selectedView = remembered.view;
+    applyFilterSnapshot(remembered.filters); // restores chips + view dropdown + draws
+  } else {
+    draw();
+  }
   // first fit after the element has real dimensions
   requestAnimationFrame(fit);
 }
@@ -917,6 +970,40 @@ const promptText = (
   new Promise((resolve) =>
     new PromptModal(app, heading, initial, resolve).open()
   );
+
+// Electron's window.confirm works but Obsidian's review guidelines disallow it, so a
+// tiny Modal stands in: resolves true on confirm, false on cancel/Esc.
+class ConfirmModal extends Modal {
+  private resolved = false;
+  constructor(
+    app: App,
+    private message: string,
+    private done: (ok: boolean) => void
+  ) {
+    super(app);
+  }
+  override onOpen() {
+    const { contentEl, modalEl } = this;
+    if (document.fullscreenElement)
+      document.fullscreenElement.appendChild(this.containerEl);
+    modalEl.addClass("mm-prompt");
+    contentEl.createEl("h3", { text: this.message });
+    const row = contentEl.createDiv({ cls: "mm-prompt-actions" });
+    row.createEl("button", { text: "OK", cls: "mod-cta" }).onclick = () => {
+      this.resolved = true;
+      this.done(true);
+      this.close();
+    };
+    row.createEl("button", { text: "Cancel" }).onclick = () => this.close();
+  }
+  override onClose() {
+    this.contentEl.empty();
+    if (!this.resolved) this.done(false);
+  }
+}
+
+const confirmModal = (app: App, message: string): Promise<boolean> =>
+  new Promise((resolve) => new ConfirmModal(app, message, resolve).open());
 
 // ---- help dialog ---------------------------------------------------------
 // ponytail: hand-maintained cheat sheet. The plugin can't read the repo README at
