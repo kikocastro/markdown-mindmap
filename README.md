@@ -179,6 +179,7 @@ filter: [horizon, kind, status]
 - **Focus** from a card dialog — show that node, its ancestors, and its primary descendants; click empty map space to clear focus.
 - **Titles only** — toggle the toolbar button to hide each card's subtitle, meta, bars, and labels, leaving just the title.
 - **+ / −** on a card — collapse / expand its subtree.
+- **⟨ / ☰** — collapse the toolbar to a single button (and expand it back) when it gets in the way.
 - **⛶** — fullscreen. **Reset** — clear filters/search/collapse/focus and refit.
 - **Drag** to pan, **scroll** to zoom.
 

@@ -40,6 +40,14 @@
   flex: 1 1 auto;
 }
 
+/* collapsed: shrink to the toggle button and stop spanning the stage */
+.mm-toolbar.mm-bar-collapsed {
+  right: auto;
+}
+.mm-toolbar.mm-bar-collapsed > *:not(.mm-bartoggle) {
+  display: none;
+}
+
 .mm-search {
   font-size: 12px;
   padding: 4px 9px;

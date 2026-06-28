@@ -135,6 +135,20 @@ function renderMindmap(
   const wrapEl = host.createDiv({ cls: "mm-wrap" });
   if (cfg.height) wrapEl.style.height = cfg.height + "px";
   const toolbar = wrapEl.createDiv({ cls: "mm-toolbar" });
+  // collapse the toolbar to a single button so it stops covering the map; stays as the first child
+  const barToggle = toolbar.createEl("button", {
+    cls: "mm-icon mm-bartoggle",
+    text: "⟨",
+    attr: { title: "Collapse toolbar" },
+  });
+  barToggle.onclick = () => {
+    const collapsedBar = toolbar.classList.toggle("mm-bar-collapsed");
+    barToggle.setText(collapsedBar ? "☰" : "⟨");
+    barToggle.setAttr(
+      "title",
+      collapsedBar ? "Expand toolbar" : "Collapse toolbar"
+    );
+  };
   if (cfg.title) toolbar.createSpan({ cls: "mm-title", text: cfg.title });
 
   // search box (Miro-style: highlights matching cards, dims the rest)
