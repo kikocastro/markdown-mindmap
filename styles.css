@@ -13,36 +13,44 @@
   border-radius: 0;
 }
 
+/* vertical sidebar pinned to the left edge of the stage */
 .mm-toolbar {
   position: absolute;
   top: 8px;
   left: 8px;
-  right: 8px;
+  bottom: 8px;
   z-index: 3;
+  width: 220px;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  padding: 7px 10px;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px;
+  overflow-y: auto;
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   font-size: 12px;
 }
+.mm-bartoggle {
+  align-self: flex-start;
+}
 .mm-toolbar .mm-title {
   font-weight: 600;
-  padding-right: 10px;
-  margin-right: 2px;
-  border-right: 1px solid var(--background-modifier-border);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
 }
 .mm-spacer {
   flex: 1 1 auto;
 }
 
-/* collapsed: shrink to the toggle button and stop spanning the stage */
+/* collapsed: shrink to the toggle button and stop covering the stage */
 .mm-toolbar.mm-bar-collapsed {
-  right: auto;
+  width: auto;
+  bottom: auto;
+  overflow: visible;
 }
 .mm-toolbar.mm-bar-collapsed > *:not(.mm-bartoggle) {
   display: none;
@@ -62,24 +70,24 @@
   border-color: var(--interactive-accent);
 }
 
-/* multiselect filter: a labelled group of toggle chips.
-   Each group sits behind a faint pill so it reads as one unit, with a divider before it. */
+/* multiselect filter: a labelled group of toggle chips. In the sidebar each group
+   is a full-width block, label on its own row, chips wrapping below, divided by a rule. */
 .mm-fltgroup {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  padding: 2px 6px 2px 0;
-  margin-left: 4px;
-  border-left: 1px solid var(--background-modifier-border);
-  padding-left: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
 }
 .mm-fltlabel {
+  flex-basis: 100%;
   color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.6px;
   font-size: 9px;
   font-weight: 600;
-  margin-right: 2px;
+  margin-bottom: 2px;
 }
 .mm-toolbar .mm-chip {
   font-size: 11px;
@@ -103,15 +111,14 @@
 }
 .mm-viewgroup {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  margin-left: 4px;
-  padding-left: 10px;
-  border-left: 1px solid var(--background-modifier-border);
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
 }
 .mm-viewselect {
-  min-width: 112px;
-  max-width: 180px;
+  flex-basis: 100%;
   font-size: 12px;
   padding: 4px 9px;
   border-radius: 7px;
