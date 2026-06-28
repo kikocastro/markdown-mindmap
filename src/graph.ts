@@ -99,6 +99,7 @@ export interface MapCfg {
   levels: LevelCfg[];
   edges?: EdgeCfg[];
   filter?: string[];
+  filterLabels?: Record<string, string>; // property -> display name for its filter group
   layout?: LayoutCfg;
   properties?: boolean;
   views?: SavedViewCfg[];

@@ -60,7 +60,7 @@ function drawLabels(g: SVGElement, n: VNode) {
   const top = n.y + 7,
     h = 15,
     size = 9,
-    pad = 7;
+    pad = 11;
   const maxX = n.x + n.w - (n.hasKids ? 30 : 12);
   let bx = n.x + 12;
   for (const t of n.labels) {
@@ -147,16 +147,24 @@ data.nodes.forEach((n) => {
 
   const padR = n.hasKids ? 42 : 16;
   const lines: { t: string; cls: string; size: number; lh: number }[] = [];
-  wrap(n.title, n.w - 14 - padR, 12, data.titleLines).forEach((t) =>
+  let truncated = false;
+  const titleWrapped = wrap(n.title, n.w - 14 - padR, 12, data.titleLines);
+  if (
+    titleWrapped.join(" ").length < n.title.replace(/\s+/g, " ").trim().length
+  )
+    truncated = true;
+  titleWrapped.forEach((t) =>
     lines.push({ t, cls: "mm-t1", size: 12, lh: 16 })
   );
-  if (n.sub)
+  if (n.sub) {
+    if (n.sub.length > 46) truncated = true;
     lines.push({
       t: n.sub.length > 46 ? n.sub.slice(0, 45) + "…" : n.sub,
       cls: "mm-t2",
       size: 10.5,
       lh: 15,
     });
+  }
   if (n.meta) lines.push({ t: n.meta, cls: "mm-meta", size: 9.5, lh: 14 });
   const totalH = lines.reduce((s, b) => s + b.lh, 0);
   const firstSize = lines[0]?.size || 12;
@@ -172,6 +180,9 @@ data.nodes.forEach((n) => {
     ).textContent = b.t;
     ty += b.lh;
   });
+
+  if (truncated)
+    svgEl("title", {}, g).textContent = n.title + (n.sub ? "\n" + n.sub : "");
 
   if (hasBar) drawBar(g, n);
   g.addEventListener("click", () =>

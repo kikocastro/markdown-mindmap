@@ -151,7 +151,10 @@ function renderMindmap(
     if (!values.length) return;
     chipByPropValue[prop] = {};
     const grp = toolbar.createDiv({ cls: "mm-fltgroup" });
-    grp.createSpan({ cls: "mm-fltlabel", text: prop });
+    grp.createSpan({
+      cls: "mm-fltlabel",
+      text: cfg.filterLabels?.[prop] ?? prop,
+    });
     values.forEach((v) => {
       const chip = grp.createEl("button", { cls: "mm-chip", text: v });
       chipByPropValue[prop][v] = chip;
@@ -561,16 +564,25 @@ function renderMindmap(
         const textPadBottom = 14;
         const lines: { t: string; cls: string; size: number; lh: number }[] =
           [];
-        wrap(n.title, n.w! - 14 - padR, 12, titleLines).forEach((t) =>
+        let truncated = false;
+        const titleWrapped = wrap(n.title, n.w! - 14 - padR, 12, titleLines);
+        if (
+          titleWrapped.join(" ").length <
+          n.title.replace(/\s+/g, " ").trim().length
+        )
+          truncated = true;
+        titleWrapped.forEach((t) =>
           lines.push({ t, cls: "mm-t1", size: 12, lh: 16 })
         );
-        if (n.sub)
+        if (n.sub) {
+          if (n.sub.length > 46) truncated = true;
           lines.push({
             t: n.sub.length > 46 ? n.sub.slice(0, 45) + "…" : n.sub,
             cls: "mm-t2",
             size: 10.5,
             lh: 15,
           });
+        }
         if (n.meta)
           lines.push({ t: n.meta, cls: "mm-meta", size: 9.5, lh: 14 });
         const totalH = lines.reduce((s, b) => s + b.lh, 0);
@@ -590,6 +602,11 @@ function renderMindmap(
           ).textContent = b.t;
           ty += b.lh;
         });
+
+        // native tooltip with the full text when title/subtitle was clipped
+        if (truncated)
+          svgEl("title", {}, g).textContent =
+            n.title + (n.sub ? "\n" + n.sub : "");
 
         // bottom strip: progress/category bar first, then label pills last
         if (hasBar) drawBar(g, n);
@@ -637,7 +654,7 @@ function renderMindmap(
     const top = n.y! + n.h! - 20,
       h = 15,
       size = 9,
-      pad = 7;
+      pad = 11;
     const maxX = n.x! + n.w! - 12;
     let bx = n.x! + 12;
     for (let i = 0; i < n.labels.length; i++) {

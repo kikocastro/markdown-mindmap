@@ -78,16 +78,17 @@ filter: [status]
 
 **Top level**
 
-| Key          | Type            | Meaning                                                                                |
-| ------------ | --------------- | -------------------------------------------------------------------------------------- |
-| `title`      | string          | Heading in the toolbar.                                                                |
-| `height`     | number          | Component height in px (default `900`).                                                |
-| `levels`     | list            | Columns, left to right. **Required.**                                                  |
-| `edges`      | list            | Parent → child links between levels.                                                   |
-| `filter`     | list of strings | Frontmatter properties exposed as multi-select chip filters.                           |
-| `layout`     | map             | Override card/column sizing (below). All keys optional.                                |
-| `properties` | boolean         | When `true`, the note dialog shows all frontmatter as a table above the rendered note. |
-| `views`      | list            | Saved filter selections, managed by the toolbar's saved-view controls.                 |
+| Key            | Type            | Meaning                                                                                                              |
+| -------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `title`        | string          | Heading in the toolbar.                                                                                              |
+| `height`       | number          | Component height in px (default `900`).                                                                              |
+| `levels`       | list            | Columns, left to right. **Required.**                                                                                |
+| `edges`        | list            | Parent → child links between levels.                                                                                 |
+| `filter`       | list of strings | Frontmatter properties exposed as multi-select chip filters.                                                         |
+| `filterLabels` | map             | Rename a filter group's heading, e.g. `{ customFields.quarters: Quarter }`. Unlisted properties keep their raw name. |
+| `layout`       | map             | Override card/column sizing (below). All keys optional.                                                              |
+| `properties`   | boolean         | When `true`, the note dialog shows all frontmatter as a table above the rendered note.                               |
+| `views`        | list            | Saved filter selections, managed by the toolbar's saved-view controls.                                               |
 
 **`layout`** (all optional, defaults shown)
 
