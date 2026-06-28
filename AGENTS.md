@@ -4,27 +4,28 @@ Canonical instructions for coding agents in this repo. `CLAUDE.md` and `GEMINI.m
 
 ## What this is
 
-An Obsidian plugin that renders leveled left-to-right mind maps from note frontmatter links. One ` ```mindmap ` code block per map; config is inline YAML (see `README.md`).
+Leveled left-to-right mind maps from note frontmatter links, with **two adapters over one shared core**: an Obsidian plugin and a VS Code extension. One ` ```mindmap ` YAML block per map (see `README.md`).
 
 ## Architecture
 
-- `src/graph.ts` — **pure core.** Zero imports, no `obsidian` coupling. Node collection, edges, visibility, layout, search. All unit-tested.
-- `main.ts` — the **Obsidian adapter** and the only file importing `obsidian`. Owns DOM/SVG, the toolbar, pan/zoom, and the note `Modal`. It feeds plain data into the core and draws what the core returns.
-- `styles.css` — theme-aware styling via Obsidian CSS variables.
-- `test/` — vitest, exercising the core through plain `NoteLike` data (host-agnostic, no Obsidian runtime).
+- `src/graph.ts` — **pure core.** Zero imports, no host coupling. Node collection, edges, visibility, layout, search. All unit-tested. **Shared by both adapters.**
+- `src/obsidian/main.ts` — **Obsidian adapter**, the only file importing `obsidian`. Owns DOM/SVG, toolbar, pan/zoom, the note `Modal`. Builds `main.js`.
+- `src/vscode/` — **VS Code adapter.** `extension.ts` (host: reads workspace markdown, runs the core, posts a `payload.ts` view-model), `webview.ts` (pure SVG drawing + pan/zoom + click-to-open). Builds `dist/extension.js` + `dist/webview.js`.
+- `styles.css` — Obsidian theming via CSS variables. (VS Code styling is inline in the webview, using `--vscode-*` vars.)
+- `test/` — vitest, exercising the core through plain `NoteLike` data (host-agnostic).
 
-**Invariant: keep `src/graph.ts` host-free.** No `from "obsidian"`, no DOM. New pure logic and its tests go there; only rendering/vault glue goes in `main.ts`.
+**Invariant: keep `src/graph.ts` host-free.** No `from "obsidian"`, no `from "vscode"`, no DOM. New pure logic and its tests go there; only host glue goes in the adapters.
 
 ## Commands
 
 ```bash
-npm run build      # typecheck (tsc --noEmit) + esbuild production -> main.js
-npm run dev        # esbuild watch
+npm run build      # typecheck + esbuild production -> main.js (Obsidian) + dist/ (VS Code)
+npm run dev        # esbuild watch (all targets)
 npm test           # vitest run --coverage
 npm run typecheck  # tsc --noEmit, strict + noUnused* + noImplicit*
 ```
 
-Obsidian loads only `main.js`, `manifest.json`, `styles.css`. `main.js` is generated (gitignored).
+Obsidian loads `main.js` + `manifest.json` + `styles.css`. VS Code loads `dist/extension.js` (command **Notes Mindmap: Open Map**) which reads the `mindmap` block from the active note. `main.js` and `dist/` are generated (gitignored).
 
 ## Conventions
 

@@ -22,7 +22,7 @@ import {
   searchMatch,
   wrap,
   validateConfig,
-} from "./src/graph";
+} from "../graph";
 
 // ============================================================================
 // Notes Mindmap — render a leveled left->right tree from note frontmatter links.

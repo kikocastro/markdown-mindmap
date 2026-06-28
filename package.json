@@ -1,8 +1,26 @@
 {
   "name": "notes-mindmap",
+  "displayName": "Notes Mindmap",
   "version": "0.1.0",
-  "description": "Configurable mind maps / leveled trees from note frontmatter links, for Obsidian.",
-  "main": "main.js",
+  "description": "Configurable mind maps / leveled trees from note frontmatter links. Obsidian plugin + VS Code extension over one shared core.",
+  "main": "dist/extension.js",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onCommand:notesMindmap.open"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "notesMindmap.open",
+        "title": "Notes Mindmap: Open Map"
+      }
+    ]
+  },
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "npm run typecheck && node esbuild.config.mjs production",
@@ -12,15 +30,19 @@
     "prepare": "husky"
   },
   "keywords": [
-    "obsidian-plugin"
+    "obsidian-plugin",
+    "vscode-extension"
   ],
   "license": "MIT",
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "26.0.1",
+    "@types/vscode": "^1.125.0",
     "@vitest/coverage-v8": "4.1.9",
     "builtin-modules": "5.3.0",
     "esbuild": "0.28.1",
     "husky": "^9.1.7",
+    "js-yaml": "^4.3.0",
     "lint-staged": "^17.0.8",
     "obsidian": "1.13.1",
     "prettier": "^3.9.1",

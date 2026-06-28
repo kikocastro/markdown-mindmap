@@ -4,21 +4,46 @@ import builtins from "builtin-modules";
 
 const prod = process.argv[2] === "production";
 
-const ctx = await esbuild.context({
-  entryPoints: ["main.ts"],
+// Two adapters share the pure core in src/graph.ts.
+// - Obsidian: src/obsidian/main.ts -> main.js (loaded by Obsidian, must stay at repo root)
+// - VS Code:  src/vscode/extension.ts -> dist/extension.js (+ webview.js for the panel)
+const targets = [
+  {
+    entryPoints: ["src/obsidian/main.ts"],
+    external: ["obsidian", "electron", ...builtins],
+    format: "cjs",
+    outfile: "main.js",
+  },
+  {
+    entryPoints: ["src/vscode/extension.ts"],
+    platform: "node",
+    external: ["vscode", ...builtins],
+    format: "cjs",
+    outfile: "dist/extension.js",
+  },
+  {
+    entryPoints: ["src/vscode/webview.ts"],
+    platform: "browser",
+    format: "iife",
+    outfile: "dist/webview.js",
+  },
+];
+
+const common = {
   bundle: true,
-  external: ["obsidian", "electron", ...builtins],
-  format: "cjs",
   target: "es2018",
   sourcemap: prod ? false : "inline",
   treeShaking: true,
-  outfile: "main.js",
   logLevel: "info",
-});
+};
+
+const ctxs = await Promise.all(
+  targets.map((t) => esbuild.context({ ...common, ...t }))
+);
 
 if (prod) {
-  await ctx.rebuild();
+  await Promise.all(ctxs.map((c) => c.rebuild()));
   process.exit(0);
 } else {
-  await ctx.watch();
+  await Promise.all(ctxs.map((c) => c.watch()));
 }

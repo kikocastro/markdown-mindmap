@@ -177,7 +177,7 @@ filter: [horizon, kind, status]
 
 ```bash
 npm install
-npm run dev     # esbuild watch → main.js
+npm run dev     # esbuild watch → main.js (Obsidian) + dist/ (VS Code)
 npm run build   # type-check + production build
 ```
 
@@ -188,6 +188,10 @@ ln -s "$(pwd)" "<your-vault>/.obsidian/plugins/notes-mindmap"
 ```
 
 (If you use Obsidian Sync, prefer a Release + BRAT, or commit the built files — Sync can remove a hand-linked plugin folder it doesn't recognize.)
+
+### VS Code
+
+The same core also drives a VS Code extension (`src/vscode/`). `npm run build` emits `dist/extension.js` + `dist/webview.js`. Open the repo in VS Code and press `F5` to launch an Extension Development Host, open a markdown note containing a ` ```mindmap ` block, then run **Notes Mindmap: Open Map** from the command palette. It reads the workspace's markdown frontmatter, runs the shared layout, and renders the map in a webview (pan, zoom, click a card to open the note). The pure logic lives in `src/graph.ts`; each adapter only handles reading notes and drawing.
 
 ## Limits
 
