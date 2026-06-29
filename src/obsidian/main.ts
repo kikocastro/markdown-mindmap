@@ -294,9 +294,14 @@ function renderMindmap(
     syncViewControls();
   }
 
-  // footer: view-density + window utilities pinned to the bottom of the rail
+  // footer: utilities pinned to the bottom of the rail, grouped into labelled
+  // clusters (Display / Export / global row) so it reads with the same grammar
+  // as the filter groups above instead of a flat stack of mixed actions.
   const foot = toolbar.createDiv({ cls: "mm-foot" });
-  const titlesBtn = foot.createEl("button", {
+
+  const displayGroup = foot.createDiv({ cls: "mm-actiongroup" });
+  displayGroup.createSpan({ cls: "mm-fltlabel", text: "Display" });
+  const titlesBtn = displayGroup.createEl("button", {
     text: "Titles only",
     attr: { title: "Show only node titles" },
   });
@@ -305,27 +310,35 @@ function renderMindmap(
     titlesBtn.toggleClass("on", titleOnly);
     draw();
   };
-  const exportBtn = foot.createEl("button", {
-    text: "Export HTML",
-    attr: { title: "Save this map as a standalone .html next to the note" },
-  });
-  exportBtn.onclick = exportHtml;
-  const exportExBtn = foot.createEl("button", {
-    text: "Export Excalidraw",
-    attr: {
-      title: "Save this map as an editable .excalidraw next to the note",
-    },
-  });
-  exportExBtn.onclick = exportExcalidraw;
-  const fsBtn = foot.createEl("button", {
+  const fsBtn = displayGroup.createEl("button", {
     text: "Fullscreen",
-    attr: { title: "Fullscreen" },
+    attr: { title: "Toggle fullscreen" },
   });
   fsBtn.onclick = () => {
     if (activeDocument.fullscreenElement) void activeDocument.exitFullscreen();
     else void wrapEl.requestFullscreen();
   };
+
+  const exportGroup = foot.createDiv({ cls: "mm-actiongroup" });
+  exportGroup.createSpan({ cls: "mm-fltlabel", text: "Export" });
+  const exportBtn = exportGroup.createEl("button", {
+    text: "HTML",
+    attr: { title: "Save this map as a standalone .html next to the note" },
+  });
+  exportBtn.onclick = exportHtml;
+  const exportExBtn = exportGroup.createEl("button", {
+    text: "Excalidraw",
+    attr: {
+      title: "Save this map as an editable .excalidraw next to the note",
+    },
+  });
+  exportExBtn.onclick = exportExcalidraw;
+
+  // global utilities share one bottom row: Reset hugs the left, Help the right
+  const footUtil = foot.createDiv({ cls: "mm-utilrow" });
+
   plugin.registerDomEvent(activeDocument, "fullscreenchange", () => {
+    fsBtn.toggleClass("on", activeDocument.fullscreenElement === wrapEl);
     window.requestAnimationFrame(fit);
     // left fullscreen with a deferred persist queued -> flush it now
     if (activeDocument.fullscreenElement !== wrapEl && pendingWrite) {
@@ -463,7 +476,7 @@ function renderMindmap(
     );
   }
 
-  const resetBtn = foot.createEl("button", { text: "Reset" });
+  const resetBtn = footUtil.createEl("button", { text: "Reset" });
   resetBtn.onclick = () => {
     collapsed.clear();
     selected = null;
@@ -482,7 +495,7 @@ function renderMindmap(
     if (cfg.activeView) persistActiveView("").catch(reportViewError);
   };
 
-  const helpBtn = foot.createEl("button", {
+  const helpBtn = footUtil.createEl("button", {
     cls: "mm-help",
     text: "Help",
     attr: { title: "Mindmap help" },

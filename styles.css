@@ -205,10 +205,28 @@
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  padding-top: 10px;
+  gap: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--background-modifier-border);
+}
+/* a labelled action cluster mirrors the filter groups above; its buttons split
+   the row evenly (like the Edit/Delete pair) and stay bordered so the footer
+   reads as deliberate controls, not a loose stack. */
+.mm-actiongroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.mm-foot .mm-actiongroup button {
+  flex: 1 1 0;
+  text-align: center;
+  border-color: var(--background-modifier-border);
+}
+/* global utilities share one line: Reset hugs the left, Help the right */
+.mm-utilrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* focus banner: the label ellipsises, the ✕ always stays visible at the right */
