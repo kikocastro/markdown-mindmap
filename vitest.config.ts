@@ -11,7 +11,12 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: ["src/obsidian/**", "src/vscode/**"],
       reporter: ["text", "text-summary", "json-summary"],
-      thresholds: { lines: 80, functions: 80, statements: 80 },
+      thresholds: {
+        lines: 100,
+        functions: 100,
+        statements: 100,
+        branches: 100,
+      },
     },
   },
 });
