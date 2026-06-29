@@ -672,3 +672,10 @@ export const searchMatch = (n: MNode, term: string): boolean =>
   (n.title + " " + n.sub + " " + n.meta)
     .toLowerCase()
     .includes(term.toLowerCase());
+
+// ---- export --------------------------------------------------------------
+
+// HTML export destination: sibling of the note, ".md" swapped for " mindmap.html".
+// ponytail: multiple mindmap blocks in one note share this path; later exports overwrite.
+export const mindmapExportPath = (notePath: string): string =>
+  notePath.replace(/\.md$/i, "") + " mindmap.html";

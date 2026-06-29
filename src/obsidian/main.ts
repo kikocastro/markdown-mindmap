@@ -38,6 +38,7 @@ import {
   wrap,
   subWidth,
   validateConfig,
+  mindmapExportPath,
 } from "../graph";
 
 // ============================================================================
@@ -302,6 +303,11 @@ function renderMindmap(
     titlesBtn.toggleClass("on", titleOnly);
     draw();
   };
+  const exportBtn = foot.createEl("button", {
+    text: "Export HTML",
+    attr: { title: "Save this map as a standalone .html next to the note" },
+  });
+  exportBtn.onclick = exportHtml;
   const fsBtn = foot.createEl("button", {
     text: "Fullscreen",
     attr: { title: "Fullscreen" },
@@ -896,6 +902,66 @@ function renderMindmap(
     view.y = 8;
     apply();
   }
+
+  // Export the current map (full extent, current collapse/filter state) as a
+  // standalone .html next to the note. The view is already an SVG tree; we clone
+  // it, freeze each element's *computed* style inline (so the file renders without
+  // Obsidian's CSS vars / theme), and frame it with a transform-free viewBox.
+  // ponytail: copies whatever's painted now — an active search dim bakes in.
+  function exportHtml() {
+    const PAD = 24;
+    const PROPS = [
+      "fill",
+      "stroke",
+      "stroke-width",
+      "stroke-dasharray",
+      "opacity",
+      "font-family",
+      "font-size",
+      "font-weight",
+      "text-anchor",
+      "letter-spacing",
+      "filter",
+    ];
+    const box = (rootG as SVGGraphicsElement).getBBox();
+    const clone = svg.cloneNode(true) as SVGSVGElement;
+    const live = svg.querySelectorAll<SVGElement>("*");
+    const copies = clone.querySelectorAll<SVGElement>("*");
+    live.forEach((el, i) => {
+      const cs = getComputedStyle(el);
+      copies[i].setAttribute(
+        "style",
+        PROPS.map((p) => `${p}:${cs.getPropertyValue(p)}`).join(";")
+      );
+    });
+    clone.querySelector("g")?.removeAttribute("transform"); // drop pan/zoom
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    clone.setAttribute(
+      "viewBox",
+      `${box.x - PAD} ${box.y - PAD} ${box.width + PAD * 2} ${box.height + PAD * 2}`
+    );
+    clone.setAttribute("width", String(Math.ceil(box.width + PAD * 2)));
+    clone.setAttribute("height", String(Math.ceil(box.height + PAD * 2)));
+
+    const bg = getComputedStyle(wrapEl).backgroundColor || "#fff";
+    const esc = (s: string) =>
+      s.replace(/[<>&]/g, (c) =>
+        c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"
+      );
+    const html =
+      `<!doctype html><meta charset="utf-8"><title>${esc(cfg.title || "Mindmap")}</title>` +
+      `<body style="margin:0;background:${bg}">${clone.outerHTML}</body>`;
+
+    const path = mindmapExportPath(ctx.sourcePath);
+    void app.vault.adapter.write(path, html).then(
+      () => new Notice("Exported to " + path),
+      (e: unknown) =>
+        new Notice(
+          "Export failed: " + (e instanceof Error ? e.message : String(e))
+        )
+    );
+  }
+
   let drag: { x: number; y: number } | null = null;
   stage.addEventListener("mousedown", (e) => {
     drag = { x: e.clientX - view.x, y: e.clientY - view.y };
