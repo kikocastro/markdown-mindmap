@@ -1,5 +1,18 @@
 /* Markdown Mindmap — container, toolbar, nodes, note modal. Uses Obsidian theme vars where it can. */
 
+/* Legible hover tint: the dark surface nudged toward the accent. Used instead of
+   --background-modifier-hover, which some themes set to a light colour that washes
+   out the light row/toolbar text. Anchored to --background-primary so --text-normal
+   stays readable in any theme. */
+.mm-wrap,
+.modal.mm-modal {
+  --mm-hover: color-mix(
+    in srgb,
+    var(--background-primary),
+    var(--interactive-accent) 18%
+  );
+}
+
 .mm-wrap {
   position: relative;
   height: 900px;
@@ -120,7 +133,7 @@
     border-color 0.12s ease;
 }
 .mm-toolbar .mm-chip:hover {
-  background: var(--background-modifier-hover);
+  background: var(--mm-hover);
   color: var(--text-normal);
 }
 .mm-toolbar .mm-chip.on {
@@ -170,7 +183,7 @@
     color 0.12s ease;
 }
 .mm-toolbar button:hover {
-  background: var(--background-modifier-hover);
+  background: var(--mm-hover);
   color: var(--text-normal);
 }
 .mm-toolbar button.on {
@@ -342,7 +355,7 @@
   stroke: var(--text-faint);
 }
 .mm-toggle:hover circle {
-  fill: var(--background-modifier-hover);
+  fill: var(--mm-hover);
   stroke: var(--text-normal);
 }
 .mm-toggle text {
@@ -517,7 +530,8 @@
   border-left: 3px solid var(--mm-accent, var(--interactive-accent));
 }
 .mm-link-row:hover {
-  background: var(--background-modifier-hover);
+  background: var(--mm-hover);
+  border-color: var(--mm-accent, var(--interactive-accent));
 }
 .mm-link-row.mm-link-sec {
   border-left-style: dashed;
@@ -592,7 +606,7 @@
     animation: mm-modal-in 150ms ease-out both;
   }
 
-  .modal-container:has(.modal.mm-modal) .modal-bg {
+  .modal-container.mm-modal-host .modal-bg {
     animation: mm-modal-bg-in 300ms ease-out both;
   }
 
@@ -601,8 +615,8 @@
     animation: mm-modal-out 300ms ease-in both;
   }
 
-  .modal-container.mod-closing:has(.modal.mm-modal) .modal-bg,
-  .modal-container.is-closing:has(.modal.mm-modal) .modal-bg {
+  .modal-container.mm-modal-host.mod-closing .modal-bg,
+  .modal-container.mm-modal-host.is-closing .modal-bg {
     animation: mm-modal-bg-out 300ms ease-in both;
   }
 
@@ -623,14 +637,9 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .mm-wrap *,
-  .modal.mm-modal,
-  .modal-container:has(.modal.mm-modal) .modal-bg {
-    animation: none !important;
-    transition: none !important;
-  }
-}
+/* No reduced-motion override needed: every mindmap animation/transition lives in
+   the @media (prefers-reduced-motion: no-preference) block above, so under "reduce"
+   none of them apply in the first place. */
 
 @keyframes mm-modal-in {
   from {

@@ -51,9 +51,10 @@ export default class NotesMindmapPlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("mindmap", (source, el, ctx) => {
       try {
         renderMindmap(this.app, this, source, el, ctx);
-      } catch (e: any) {
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : JSON.stringify(e);
         el.createEl("pre", {
-          text: "Markdown Mindmap error:\n" + (e?.message || String(e)),
+          text: "Markdown Mindmap error:\n" + msg,
         });
         el.createEl("button", { text: "Mindmap help" }).onclick = () =>
           new HelpModal(this.app).open();
@@ -310,7 +311,7 @@ function renderMindmap(
     else void wrapEl.requestFullscreen();
   };
   plugin.registerDomEvent(activeDocument, "fullscreenchange", () => {
-    activeWindow.requestAnimationFrame(fit);
+    window.requestAnimationFrame(fit);
     // left fullscreen with a deferred persist queued -> flush it now
     if (activeDocument.fullscreenElement !== wrapEl && pendingWrite) {
       const cfgToWrite = pendingWrite;
@@ -373,7 +374,7 @@ function renderMindmap(
     const placeholder = viewSelect.createEl("option", { text: "Select…" });
     placeholder.value = "";
     savedViews.forEach((viewCfg) => {
-      const opt = viewSelect!.createEl("option", { text: viewCfg.name });
+      const opt = viewSelect.createEl("option", { text: viewCfg.name });
       opt.value = viewCfg.name;
     });
     viewSelect.value = selectedView;
@@ -949,5 +950,5 @@ function renderMindmap(
     draw();
   }
   // first fit after the element has real dimensions
-  activeWindow.requestAnimationFrame(fit);
+  window.requestAnimationFrame(fit);
 }

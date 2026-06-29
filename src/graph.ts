@@ -83,7 +83,7 @@ export interface LevelCfg {
   from: string;
   color?: string;
   card?: CardCfg;
-  where?: Record<string, any>;
+  where?: Record<string, unknown>;
 }
 export interface EdgeCfg {
   from: string;
@@ -113,7 +113,7 @@ export interface MapCfg {
 export interface NoteLike {
   path: string;
   basename: string;
-  frontmatter: Record<string, any>;
+  frontmatter: Record<string, unknown>;
 }
 // wikilink key + the path it was found in -> resolved note path, or null
 export interface Resolver {
@@ -125,7 +125,7 @@ export interface MNode {
   levelIdx: number;
   path: string;
   basename: string;
-  fm: Record<string, any>;
+  fm: Record<string, unknown>;
   title: string;
   sub: string;
   meta: string;
@@ -152,15 +152,23 @@ export const inFolder = (path: string, folder: string): boolean => {
   return f === "" ? true : path.startsWith(`${f}/`);
 };
 
+// stringify a scalar frontmatter value; null/objects/arrays -> "" (links, categories
+// and filter targets are always YAML scalars). Keeps String() off bare `unknown`,
+// which would otherwise risk an "[object Object]" stringification.
+export const scalarStr = (v: unknown): string =>
+  typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+    ? String(v)
+    : "";
+
 // "[[Note|alias]]" / "[[Note#hd]]" / "Title" -> the lookup key (Note / Title)
-export const linkKey = (raw: any): string => {
-  const s = String(raw ?? "").trim();
+export const linkKey = (raw: unknown): string => {
+  const s = scalarStr(raw).trim();
   const m = s.match(/\[\[([^\]|#]+)/);
   return (m ? m[1] : s).trim();
 };
 
-export const asArray = (v: any): any[] =>
-  Array.isArray(v) ? v : v == null || v === "" ? [] : [v];
+export const asArray = (v: unknown): unknown[] =>
+  Array.isArray(v) ? (v as unknown[]) : v == null || v === "" ? [] : [v];
 
 export const wrap = (
   s: string,
@@ -214,42 +222,50 @@ export const cardContentHeight = (
 };
 
 // dotted access so `via`/card fields can reach nested frontmatter (e.g. customFields.serves)
-export const getPath = (fm: Record<string, any>, key?: string): any => {
+export const getPath = (fm: Record<string, unknown>, key?: string): unknown => {
   if (!fm || !key) return undefined;
   if (key.indexOf(".") < 0) return fm[key];
-  return key.split(".").reduce((o: any, k) => (o == null ? o : o[k]), fm);
+  return key
+    .split(".")
+    .reduce<unknown>(
+      (o, k) => (o == null ? o : (o as Record<string, unknown>)[k]),
+      fm
+    );
 };
 
-export const fieldStr = (fm: Record<string, any>, key?: string): string =>
+export const fieldStr = (fm: Record<string, unknown>, key?: string): string =>
   key ? asArray(getPath(fm, key)).map(linkKey).join(", ") : "";
 
-export const fieldArr = (fm: Record<string, any>, key?: string): string[] =>
+export const fieldArr = (
+  fm: Record<string, unknown>,
+  key?: string
+): string[] =>
   key ? asArray(getPath(fm, key)).map(linkKey).filter(Boolean) : [];
 
 // per-level include filter, e.g. { parentId: null } keeps only top-level roadmap tasks.
 // a `null` target matches null, missing, OR empty (stringifies to "") — the strategy map relies on this.
 export const matchesWhere = (
-  fm: Record<string, any>,
-  where?: Record<string, any>
+  fm: Record<string, unknown>,
+  where?: Record<string, unknown>
 ): boolean =>
   !where ||
   Object.keys(where).every((k) =>
     where[k] === null
       ? fieldStr(fm, k) === ""
-      : fieldStr(fm, k) === String(where[k])
+      : fieldStr(fm, k) === scalarStr(where[k])
   );
 
 // list field -> [category, count]. mode "parens" (default): category = text in
 // trailing parens, else the value. mode "value": category = the whole value.
 export const countByCat = (
-  fm: Record<string, any>,
+  fm: Record<string, unknown>,
   key?: string,
   mode: "parens" | "value" = "parens"
 ): [string, number][] => {
   if (!key) return [];
   const counts: Record<string, number> = {};
   asArray(getPath(fm, key)).forEach((raw) => {
-    const s = String(raw).trim();
+    const s = scalarStr(raw).trim();
     if (!s) return;
     const m = mode === "value" ? null : s.match(/\(([^)]+)\)\s*$/);
     const cat = (m ? m[1] : s).trim().toLowerCase();
@@ -270,7 +286,7 @@ export const normalizeBars = (bars?: string | BarCfg): BarCfg | null =>
         ? bars
         : null;
 
-export const num = (v: any): number | null => {
+export const num = (v: unknown): number | null => {
   if (v == null || v === "") return null;
   const n = Number(v);
   return isNaN(n) ? null : n;
@@ -377,7 +393,8 @@ export function buildEdges(
       byTitle: Record<string, string> = {};
     arr.forEach((n) => {
       byBase[n.basename] = n.id;
-      if (n.fm.title) byTitle[String(n.fm.title).trim()] = n.id;
+      const t = scalarStr(n.fm.title).trim();
+      if (t) byTitle[t] = n.id;
     });
     return { byBase, byTitle };
   });
@@ -401,7 +418,7 @@ export function buildEdges(
   // resolution order: injected link resolver (e.g. Obsidian wikilink) -> basename -> `title`
   const resolveInLevel = (
     li: number,
-    raw: any,
+    raw: unknown,
     sourcePath: string
   ): string | null => {
     const key = linkKey(raw);

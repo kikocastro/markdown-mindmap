@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import * as yaml from "js-yaml";
-import { randomUUID } from "node:crypto";
 import {
   MapCfg,
   NoteLike,
@@ -198,7 +197,7 @@ function htmlShell(
   scriptUri: vscode.Uri,
   payload: MapPayload
 ): string {
-  const nonce = randomUUID().replace(/-/g, "");
+  const nonce = crypto.randomUUID().replace(/-/g, "");
   const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource};`;
   // JSON is valid JS, so assign it directly; escape < so a string value can't close the <script> tag
   const data = JSON.stringify(payload).replace(/</g, "\\u003c");

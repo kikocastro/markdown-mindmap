@@ -2,7 +2,7 @@
 // Adapter-only (imports `obsidian`); pure logic stays in src/graph.ts.
 
 import { App, Component, MarkdownRenderer, Modal, TFile } from "obsidian";
-import { MNode } from "../graph";
+import { MNode, scalarStr } from "../graph";
 
 // a neighbour (parent/child/sibling), resolved for the note dialog's "Linked" section
 export interface LinkRow {
@@ -188,6 +188,7 @@ export class HelpModal extends Modal {
     if (activeDocument.fullscreenElement)
       activeDocument.fullscreenElement.appendChild(this.containerEl);
     modalEl.addClass("mm-modal");
+    this.containerEl.addClass("mm-modal-host");
     contentEl.empty();
     const body = contentEl.createDiv({ cls: "mm-note markdown-rendered" });
     await MarkdownRenderer.render(this.app, HELP, body, "", this.comp);
@@ -222,6 +223,7 @@ export class NoteModal extends Modal {
     if (activeDocument.fullscreenElement)
       activeDocument.fullscreenElement.appendChild(this.containerEl);
     modalEl.addClass("mm-modal");
+    this.containerEl.addClass("mm-modal-host");
     contentEl.empty();
     const n = this.node;
 
@@ -302,15 +304,15 @@ export class NoteModal extends Modal {
   private formatPropertyValue(value: unknown): string {
     if (Array.isArray(value))
       return value.map((v) => this.formatPropertyValue(v)).join(", ");
-    if (value && typeof value === "object") {
+    if (value == null || value === "") return "—";
+    if (typeof value === "object") {
       try {
         return JSON.stringify(value);
       } catch {
-        return String(value);
+        return "[object]";
       }
     }
-    if (value == null || value === "") return "—";
-    return String(value);
+    return scalarStr(value);
   }
 
   private renderLinks(contentEl: HTMLElement) {
