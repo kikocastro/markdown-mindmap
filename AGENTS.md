@@ -32,7 +32,3 @@ Obsidian loads `main.js` + `manifest.json` + `styles.css`. VS Code loads `dist/e
 - **TDD on the core.** Test-first for anything in `src/graph.ts`: red, watch it fail, green. Pre-commit and pre-push hooks run typecheck + tests.
 - DOM code in `main.ts` is validated by build + manual Obsidian check (not unit-tested; the established split is "pure logic is tested, rendering is not").
 - Mark deliberate simplifications with a `// ponytail:` comment naming the ceiling.
-
-## Local install (personal, gitignored)
-
-`.claude/skills/update-local-plugin/` builds and copies the runtime files into the local vaults. Vault folders live outside the workspace, so run it with the sandbox disabled and verify with a separate command.
