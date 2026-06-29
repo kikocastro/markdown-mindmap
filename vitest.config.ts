@@ -10,7 +10,7 @@ export default defineConfig({
       // validated by build + manual run, not unit tests
       include: ["src/**/*.ts"],
       exclude: ["src/obsidian/**", "src/vscode/**"],
-      reporter: ["text", "text-summary"],
+      reporter: ["text", "text-summary", "json-summary"],
       thresholds: { lines: 80, functions: 80, statements: 80 },
     },
   },
