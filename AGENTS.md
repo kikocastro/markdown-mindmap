@@ -27,6 +27,17 @@ npm run typecheck  # tsc --noEmit, strict + noUnused* + noImplicit*
 
 Obsidian loads `main.js` + `manifest.json` + `styles.css`. VS Code loads `dist/extension.js` (command **Markdown Mindmap: Open Map**) which reads the `mindmap` block from the active note. `main.js` and `dist/` are generated (gitignored).
 
+## Releasing (Obsidian)
+
+Never hand-edit version numbers or hand-attach release assets. Both broke before.
+
+```bash
+npm version patch   # bumps package.json + manifest.json + versions.json, commits, tags (bare, no "v")
+git push --follow-tags
+```
+
+`npm version` runs `version-bump.mjs` (keeps manifest/versions in sync) and tags bare per `.npmrc`. Pushing the tag triggers `.github/workflows/release.yml`, which builds and creates the GitHub release with `main.js` + `manifest.json` + `styles.css` attached. Obsidian needs all three on the release or users never get the update; the workflow also fails if the tag and `manifest.json` version disagree.
+
 ## Conventions
 
 - **TDD on the core.** Test-first for anything in `src/graph.ts`: red, watch it fail, green. Pre-commit and pre-push hooks run typecheck + tests.

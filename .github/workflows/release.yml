@@ -1,0 +1,38 @@
+name: Release Obsidian plugin
+
+# Tag push -> build -> GitHub release with the three files Obsidian needs.
+# Without this the release has no artifacts and Obsidian never sees the update.
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+      - name: Verify tag matches manifest version
+        run: |
+          manifest_version=$(node -p "require('./manifest.json').version")
+          if [ "$manifest_version" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} != manifest version $manifest_version" >&2
+            exit 1
+          fi
+      - name: Create release with Obsidian assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title="${GITHUB_REF_NAME}" \
+            --generate-notes \
+            main.js manifest.json styles.css

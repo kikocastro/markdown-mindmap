@@ -28,6 +28,7 @@
     "lint": "eslint src/graph.ts \"src/obsidian/**/*.ts\"",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
+    "version": "node version-bump.mjs && git add manifest.json versions.json",
     "prepare": "husky"
   },
   "keywords": [
