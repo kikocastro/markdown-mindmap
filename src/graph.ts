@@ -95,6 +95,7 @@ export interface EdgeCfg {
 export interface SavedViewCfg {
   name: string;
   filters?: Record<string, string[]>;
+  collapsed?: string[]; // node ids (paths) whose primary subtree is contracted
 }
 export interface MapCfg {
   title?: string;

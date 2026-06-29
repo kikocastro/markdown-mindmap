@@ -74,7 +74,7 @@ export default class NotesMindmapPlugin extends Plugin {
 // has two mindmap blocks. Persist to plugin data if either bites.
 const activeState = new Map<
   string,
-  { view: string; filters: Record<string, string[]> }
+  { view: string; filters: Record<string, string[]>; collapsed: string[] }
 >();
 
 function renderMindmap(
@@ -210,8 +210,10 @@ function renderMindmap(
     viewSelect.onchange = () => {
       selectedView = viewSelect?.value || "";
       const saved = savedViews.find((v) => v.name === selectedView);
-      if (saved) applyFilterSnapshot(saved.filters || {});
-      else syncViewControls();
+      if (saved) {
+        applyCollapsed(saved.collapsed || []);
+        applyFilterSnapshot(saved.filters || {});
+      } else syncViewControls();
       persistActiveView(selectedView).catch(reportViewError);
     };
     const saveView = views.createEl("button", {
@@ -232,10 +234,7 @@ function renderMindmap(
         !(await confirmModal(app, `Replace the saved view "${cleanName}"?`))
       )
         return;
-      const nextViews = upsertView(savedViews, {
-        name: cleanName,
-        filters: currentFilterSnapshot(),
-      });
+      const nextViews = upsertView(savedViews, currentViewCfg(cleanName));
       try {
         await persistViews(nextViews);
         selectedView = cleanName;
@@ -261,9 +260,7 @@ function renderMindmap(
         return;
       }
       const nextViews = savedViews.map((v) =>
-        v.name === current.name
-          ? { name: cleanName, filters: currentFilterSnapshot() }
-          : v
+        v.name === current.name ? currentViewCfg(cleanName) : v
       );
       try {
         await persistViews(nextViews);
@@ -359,10 +356,23 @@ function renderMindmap(
     return snapshot;
   }
 
+  // a saved view = current filters + which subtrees are contracted (collapse omitted when none)
+  function currentViewCfg(name: string): SavedViewCfg {
+    const view: SavedViewCfg = { name, filters: currentFilterSnapshot() };
+    if (collapsed.size) view.collapsed = [...collapsed];
+    return view;
+  }
+
+  function applyCollapsed(ids: string[]) {
+    collapsed.clear();
+    ids.forEach((id) => collapsed.add(id));
+  }
+
   function rememberActive() {
     activeState.set(ctx.sourcePath, {
       view: selectedView,
       filters: currentFilterSnapshot(),
+      collapsed: [...collapsed],
     });
   }
 
@@ -1074,9 +1084,11 @@ function renderMindmap(
   const startView = initialView(cfg);
   if (remembered) {
     selectedView = remembered.view;
+    applyCollapsed(remembered.collapsed);
     applyFilterSnapshot(remembered.filters); // restores chips + view dropdown + draws
   } else if (startView) {
     selectedView = startView.name;
+    applyCollapsed(startView.collapsed || []);
     applyFilterSnapshot(startView.filters || {});
   } else {
     draw();
