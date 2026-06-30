@@ -50,7 +50,16 @@ A map is a list of **levels**. Each level reads notes from a `from:` folder and 
 
 ## Install
 
-### Manual
+### Community plugins (recommended)
+
+[Markdown Mindmap](https://community.obsidian.md/plugins/markdown-mindmap) is in the Obsidian community plugin store:
+
+1. **Settings → Community plugins → Browse**.
+2. Search **"Markdown Mindmap"**, **Install**, then **Enable**.
+
+Updates arrive through Obsidian's normal plugin-update flow.
+
+### Manual (local testing / latest build)
 
 1. Get the three build files (`main.js`, `manifest.json`, `styles.css`) — either from a [Release](../../releases) or by building from source (`npm install && npm run build`).
 2. Copy them into `<your-vault>/.obsidian/plugins/markdown-mindmap/`.
