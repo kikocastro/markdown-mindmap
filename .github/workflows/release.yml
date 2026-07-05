@@ -18,8 +18,8 @@ jobs:
     env:
       VT_API_KEY: ${{ secrets.VT_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "npm"
@@ -36,7 +36,7 @@ jobs:
       # "Missing GitHub artifact attestations" finding and lets anyone run
       # `gh attestation verify <file> -R <owner>/<repo>` against the download.
       - name: Attest release assets
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             main.js
@@ -48,7 +48,7 @@ jobs:
       # the "Malware scan not available" disclosure with a public scan link.
       - name: Malware scan (VirusTotal)
         if: env.VT_API_KEY != ''
-        uses: crazy-max/ghaction-virustotal@v4
+        uses: crazy-max/ghaction-virustotal@v5
         with:
           vt_api_key: ${{ env.VT_API_KEY }}
           files: |
