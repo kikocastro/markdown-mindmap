@@ -4,12 +4,13 @@ Canonical instructions for coding agents in this repo. `CLAUDE.md` and `GEMINI.m
 
 ## What this is
 
-Leveled left-to-right mind maps from note frontmatter links, with **two adapters over one shared core**: an Obsidian plugin and a VS Code extension. One ` ```mindmap ` YAML block per map (see `README.md`).
+Leveled left-to-right mind maps from note frontmatter links, with **two adapters over one shared core**: an Obsidian plugin and a VS Code extension. One ` ```mindmap ` YAML block per map (see `README.md`). A second block type, ` ```causalmap `, renders causal-loop diagrams (systems-thinking graphs with automatic cycle detection) — Obsidian only for now.
 
 ## Architecture
 
 - `src/graph.ts` — **pure core.** Zero imports, no host coupling. Node collection, edges, visibility, layout, search. All unit-tested. **Shared by both adapters.**
-- `src/obsidian/main.ts` — **Obsidian adapter**, the only file importing `obsidian`. Owns DOM/SVG, toolbar, pan/zoom, the note `Modal`. Builds `main.js`.
+- `src/causal.ts` — **pure causal-map core.** Imports only from `graph.ts`. Signed-edge collection, cycle detection, loop polarity, force-directed layout. Same rules as `graph.ts`: host-free, 100% covered.
+- `src/obsidian/main.ts` — **Obsidian adapter** (with `src/obsidian/causal.ts` for ` ```causalmap ` blocks); only these files import `obsidian`. Owns DOM/SVG, toolbar, pan/zoom, the note `Modal`. Builds `main.js`.
 - `src/vscode/` — **VS Code adapter.** `extension.ts` (host: reads workspace markdown, runs the core, posts a `payload.ts` view-model), `webview.ts` (pure SVG drawing + pan/zoom + click-to-open). Builds `dist/extension.js` + `dist/webview.js`.
 - `styles.css` — Obsidian theming via CSS variables. (VS Code styling is inline in the webview, using `--vscode-*` vars.)
 - `test/` — vitest, exercising the core through plain `NoteLike` data (host-agnostic).
