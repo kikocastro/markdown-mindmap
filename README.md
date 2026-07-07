@@ -20,6 +20,10 @@ It ships as **two adapters over one shared core** (`src/graph.ts`): the **Obsidi
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
 | ![Save current filters as a named view](assets/screenshot-saved-views.png) | ![Search spotlighting matching cards](assets/screenshot-search.png) | ![Titles-only mode](assets/screenshot-titles-only.png) |
 
+| Causal map overview                                                                       | Causal loop spotlight                                                            |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| ![Causal map overview with loop and type rails](assets/screenshot-causalmap-overview.png) | ![Causal map spotlighting the morale loop](assets/screenshot-causalmap-loop.png) |
+
 ## Features
 
 - **Live from frontmatter.** Folders become columns; frontmatter links become edges. Add or remove a note and the map updates.
