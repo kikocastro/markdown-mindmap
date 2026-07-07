@@ -391,6 +391,82 @@
   fill: var(--text-on-accent);
 }
 
+/* ---- causal map (```causalmap) ---- */
+
+/* edges: whole group (line + arrowhead + sign badge) fades as one */
+.cm-edge {
+  opacity: 0.55;
+}
+.cm-edge.mm-dim {
+  opacity: 0.07;
+}
+.cm-edge.mm-hot {
+  opacity: 1;
+}
+.cm-line {
+  fill: none;
+}
+.cm-neg .cm-line {
+  stroke-dasharray: 6 5;
+}
+.cm-signbg {
+  fill: var(--background-primary);
+  stroke: var(--background-modifier-border);
+}
+.cm-sign {
+  fill: var(--text-normal);
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+/* centred node label */
+.cm-t {
+  text-anchor: middle;
+}
+/* loop rail: kind dot + name, one per row so long labels stay readable */
+.cm-loopgroup .cm-loopchip {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+}
+.cm-loopdot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.cm-looptext {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* type legend rows */
+.cm-legendrow {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.cm-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.cm-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
 /* note modal */
 .modal.mm-modal {
   width: min(760px, 92vw);

@@ -55,7 +55,7 @@ class PromptModal extends Modal {
     const row = contentEl.createDiv({ cls: "mm-prompt-actions" });
     row.createEl("button", { text: "Save", cls: "mod-cta" }).onclick = submit;
     row.createEl("button", { text: "Cancel" }).onclick = () => this.close();
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       input.focus();
       input.select();
     }, 0);
@@ -177,6 +177,48 @@ Field values are frontmatter property names; dotted paths work everywhere (\`cus
 - **+ / −** — collapse / expand a subtree
 - **⟨ / ☰** — collapse the toolbar to a single button, or expand it back
 - **⛶** fullscreen · **Reset** clears filters/search/collapse/focus · drag to pan, scroll to zoom
+
+## Causal maps (systems thinking)
+
+A \`\`\`causalmap\`\`\` block renders a **causal-loop diagram**: notes are causal
+variables, frontmatter \`affects:\` entries are signed edges, and feedback loops
+are **detected automatically** and classified reinforcing/balancing by sign
+parity (an even number of \`-\` edges reinforces).
+
+### Quick start
+~~~yaml
+title: Engineering system
+folders: [systems/nodes]
+loopFolders: [systems/loops]   # optional loop cards: labels per loop id
+where: { status: active }
+~~~
+
+### Each variable note
+~~~yaml
+id: untested-code-live         # optional, defaults to the file name
+label: Untested code live
+type: vice                     # driver | vice | capability | virtue (colours the border)
+status: active
+affects:
+  - to: incident               # id, note name, or [[wikilink]]
+    sign: "+"                  # "+" same direction (default), "-" opposite
+    loops: [R1]                # optional loop name tag(s)
+~~~
+
+### Keys
+- **folders** (required) — folders holding the variable notes
+- **loopFolders** — folders with loop cards (\`id\` + \`label\`) naming detected loops
+- **edgesField** / **labelField** / **typeField** — rename the frontmatter fields
+- **typeColors** — override the per-type colours
+- **where** — keep only matching notes, e.g. \`{ status: active }\`
+- **layout** — \`{ nodeWidth, spacing, iterations }\`
+- **title / height / properties** — as in mindmaps
+
+### Interactions
+- **Loop chips** — click a loop (● amber = reinforcing, ● teal = balancing) to spotlight its cycle
+- **Hover** a node — highlight everything it affects and is affected by
+- **Click** a node — note dialog; linked rows carry their edge sign (+ / −)
+- **Search / Reset / Fullscreen / Export HTML** — as in mindmaps
 
 [Full documentation on GitHub →](https://github.com/kikocastro/markdown-mindmap#readme)
 `;

@@ -8,6 +8,7 @@ import {
   stringifyYaml,
 } from "obsidian";
 import { svgEl } from "./svg";
+import { renderCausalMap } from "./causal";
 import {
   LinkRow,
   HelpModal,
@@ -60,6 +61,18 @@ export default class NotesMindmapPlugin extends Plugin {
           text: "Markdown Mindmap error:\n" + msg,
         });
         el.createEl("button", { text: "Mindmap help" }).onclick = () =>
+          new HelpModal(this.app).open();
+      }
+    });
+    this.registerMarkdownCodeBlockProcessor("causalmap", (source, el, ctx) => {
+      try {
+        renderCausalMap(this.app, this, source, el, ctx);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : JSON.stringify(e);
+        el.createEl("pre", {
+          text: "Causal Map error:\n" + msg,
+        });
+        el.createEl("button", { text: "Help" }).onclick = () =>
           new HelpModal(this.app).open();
       }
     });
@@ -326,7 +339,7 @@ function renderMindmap(
   const exportExBtn = exportGroup.createEl("button", {
     text: "Excalidraw",
     attr: {
-      title: "Save this map as an editable .excalidraw next to the note",
+      title: "Save this map as an editable .Excalidraw next to the note",
     },
   });
   exportExBtn.onclick = exportExcalidraw;
@@ -336,7 +349,7 @@ function renderMindmap(
 
   plugin.registerDomEvent(activeDocument, "fullscreenchange", () => {
     fsBtn.toggleClass("on", activeDocument.fullscreenElement === wrapEl);
-    activeWindow.requestAnimationFrame(fit);
+    window.requestAnimationFrame(fit);
     // left fullscreen with a deferred persist queued -> flush it now
     if (activeDocument.fullscreenElement !== wrapEl && pendingWrite) {
       const cfgToWrite = pendingWrite;
@@ -1094,5 +1107,5 @@ function renderMindmap(
     draw();
   }
   // first fit after the element has real dimensions
-  activeWindow.requestAnimationFrame(fit);
+  window.requestAnimationFrame(fit);
 }

@@ -20,6 +20,10 @@ It ships as **two adapters over one shared core** (`src/graph.ts`): the **Obsidi
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
 | ![Save current filters as a named view](assets/screenshot-saved-views.png) | ![Search spotlighting matching cards](assets/screenshot-search.png) | ![Titles-only mode](assets/screenshot-titles-only.png) |
 
+| Causal map overview                                                                       | Causal loop spotlight                                                            |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| ![Causal map overview with loop and type rails](assets/screenshot-causalmap-overview.png) | ![Causal map spotlighting the morale loop](assets/screenshot-causalmap-loop.png) |
+
 ## Features
 
 - **Live from frontmatter.** Folders become columns; frontmatter links become edges. Add or remove a note and the map updates.
@@ -251,6 +255,63 @@ The same core also drives a VS Code extension (`src/vscode/`). Unlike Obsidian, 
 - `from:` is folder-only (no tag / Dataview queries yet).
 - Link resolution matches a wikilink, basename, or `title` — not an arbitrary shared field value (so a keyword like `stage: claims` won't auto-link unless a note of that basename/title exists).
 - Layout centring assumes primary edges connect adjacent levels.
+
+## Causal maps (systems thinking)
+
+Besides trees, the plugin renders **causal-loop diagrams** — multi-connected graphs for systems
+thinking, built for diagnosing retrospectives, post-mortems, and spotting leverage points. One
+fenced ` ```causalmap ` block per diagram (Obsidian only for now).
+
+Each causal variable is a note carrying its **outgoing signed edges** in frontmatter. Topology is
+stored once, on the source note — no separate edge file:
+
+```yaml
+---
+id: untested-code-live # optional, defaults to the file name
+label: Untested code live
+type: vice # driver | vice | capability | virtue — colours the border
+status: active
+affects:
+  - to: incident # id, note name, or [[wikilink]]
+    sign: "+" # "+" moves the same direction (default), "-" opposite
+    loops: [R1] # optional: name the loop(s) this edge belongs to
+---
+```
+
+The block:
+
+````yaml
+```causalmap
+title: Engineering system
+folders: [systems/nodes]
+loopFolders: [systems/loops]   # optional loop cards (id + label) naming detected loops
+where: { status: active }
+height: 700
+```
+````
+
+What you get:
+
+- **Cycles are detected automatically** (bounded simple-cycle search) and classified by sign
+  parity: an even number of `-` edges makes a **reinforcing** loop, odd makes a **balancing**
+  one. No hand-maintained loop lists to drift out of date.
+- **Loop rail**: every detected loop as a chip (● amber = reinforcing, ● teal = balancing);
+  click one to spotlight exactly its edges and nodes — the retro projector view. Loops whose
+  edges share a `loops:` tag take that name; a matching card in `loopFolders` (frontmatter
+  `id` + `label`) supplies the display label. Untagged cycles get auto names (`L1`, `L2`, …).
+- **Signed edges**: curved arrows with a `+`/`−` badge; negative links draw dashed.
+- **Deterministic force-directed layout** — the same notes always produce the same picture.
+- Hover a node to light up everything it affects and is affected by; click it for the note
+  dialog (linked rows carry their edge sign); search, fullscreen, HTML export, pan/zoom as in
+  mindmaps.
+
+Other keys: `edgesField` / `labelField` / `typeField` rename the frontmatter fields,
+`typeColors` overrides the per-type palette, `layout: { nodeWidth, spacing, iterations }`
+tunes the drawing, `properties: true` shows all frontmatter in the dialog.
+
+> A runnable copy, with sample cards and loop notes, lives in
+> [`examples/causalmap-demo/`](examples/causalmap-demo). Copy that folder into your vault root
+> and open `Causal map demo.md`.
 
 ## License
 
