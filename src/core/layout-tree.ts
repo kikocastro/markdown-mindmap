@@ -3,16 +3,18 @@
 import { MapCfg, MNode, resolveLayout } from "./config";
 import { MIN_H, cardContentHeight, primKids } from "./helpers";
 
-// DFS by primary parent so siblings stay contiguous — shared by the tree layout
-// and any view that wants "tree reading order" (e.g. gantt rows).
-export function treeOrder(
+// DFS by primary parent so siblings stay contiguous — the one "tree reading
+// order" shared by the map layout and the gantt rows. Pre-order across levels;
+// visible nodes never reached from a root (parent filtered/collapsed/
+// secondary-only) are appended afterwards, level by level.
+export function treeSequence(
   cfg: MapCfg,
   nodes: Record<string, MNode>,
   byLevel: MNode[][],
   vis: Set<string>
-): string[][] {
+): string[] {
   const visN = (id: string) => vis.has(id);
-  const order: string[][] = cfg.levels.map(() => []);
+  const seq: string[] = [];
   const seen = new Set<string>();
   const childrenSorted = (n: MNode) =>
     primKids(nodes, n.id)
@@ -22,18 +24,31 @@ export function treeOrder(
   const dfs = (n: MNode) => {
     if (seen.has(n.id)) return;
     seen.add(n.id);
-    order[n.levelIdx].push(n.id);
+    seq.push(n.id);
     childrenSorted(n).forEach(dfs);
   };
   byLevel[0].filter((n) => visN(n.id)).forEach(dfs);
-  // any visible node not reached from a root (parent filtered/collapsed/secondary-only) — append to its level
   cfg.levels.forEach((_, li) =>
     byLevel[li].forEach((n) => {
       if (visN(n.id) && !seen.has(n.id)) {
         seen.add(n.id);
-        order[li].push(n.id);
+        seq.push(n.id);
       }
     })
+  );
+  return seq;
+}
+
+// the same sequence bucketed per level (what the column layout consumes)
+export function treeOrder(
+  cfg: MapCfg,
+  nodes: Record<string, MNode>,
+  byLevel: MNode[][],
+  vis: Set<string>
+): string[][] {
+  const order: string[][] = cfg.levels.map(() => []);
+  treeSequence(cfg, nodes, byLevel, vis).forEach((id) =>
+    order[nodes[id].levelIdx].push(id)
   );
   return order;
 }

@@ -13,5 +13,7 @@ export * from "./core/collect";
 export * from "./core/edges";
 export * from "./core/visibility";
 export * from "./core/layout-tree";
+export * from "./core/layout-gantt";
+export * from "./core/layout-kanban";
 export * from "./core/views";
 export * from "./core/render-model";

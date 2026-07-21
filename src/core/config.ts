@@ -88,18 +88,42 @@ export interface EdgeCfg {
   reverse?: boolean;
   secondary?: boolean;
 }
+// how the same collected + filtered tree is laid out and drawn
+export type ViewMode = "map" | "gantt" | "kanban";
+
+// gantt view: field names for the date range + bar fill, all configurable like
+// every card field. Milestone = start == end, or one of the two missing.
+export interface GanttCfg {
+  start: string; // frontmatter field with the start date (ISO)
+  end: string; // frontmatter field with the end/due date (ISO)
+  progress?: string; // 0-100 field for the bar fill (defaults to card progress)
+  scale?: "week" | "month" | "quarter"; // axis tick unit (default month)
+  groupRows?: boolean; // default true: DFS tree order + indent; false: flat path order
+}
+
+// kanban view: group visible nodes into columns by a frontmatter field
+export interface KanbanCfg {
+  groupBy: string;
+  columns?: string[]; // explicit column order (unlisted values append in data order)
+  colors?: Record<string, string>; // column value -> header colour
+}
+
 export interface SavedViewCfg {
   name: string;
   filters?: Record<string, string[]>;
+  view?: ViewMode; // a saved view pins filters + view mode ("devops · gantt")
 }
 export interface MapCfg {
   title?: string;
   height?: number;
+  view?: ViewMode; // default "map" (backward compatible)
   levels: LevelCfg[];
   edges?: EdgeCfg[];
   filter?: string[];
   filterLabels?: Record<string, string>; // property -> display name for its filter group
   layout?: LayoutCfg;
+  gantt?: GanttCfg;
+  kanban?: KanbanCfg;
   properties?: boolean;
   views?: SavedViewCfg[];
   activeView?: string; // name of the saved view to auto-select on (re)render

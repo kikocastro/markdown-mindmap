@@ -8,6 +8,7 @@ import {
   MapCfg,
   NoteLike,
   Resolver,
+  ViewMode,
   resolveLayout,
   validateConfig,
 } from "./config";
@@ -15,8 +16,8 @@ import { collectNodes } from "./collect";
 import { buildEdges, isSecondary } from "./edges";
 import { computeVisible, focusVisible } from "./visibility";
 import { orderAndLayout } from "./layout-tree";
-
-export type ViewMode = "map";
+import { GanttModel, layoutGantt } from "./layout-gantt";
+import { layoutKanban } from "./layout-kanban";
 
 // transient UI state the adapters own (chips, collapse clicks, focus, density)
 export interface UiState {
@@ -24,6 +25,7 @@ export interface UiState {
   filters?: Record<string, string[]>;
   focused?: string | null;
   titleOnly?: boolean;
+  view?: ViewMode; // toolbar override of cfg.view
 }
 
 export interface RNode {
@@ -58,6 +60,8 @@ export interface REdge {
 export interface RHeader {
   x: number;
   label: string;
+  color?: string; // kanban column colour
+  count?: number; // kanban column card count
 }
 
 export interface RenderModel {
@@ -66,9 +70,10 @@ export interface RenderModel {
   titleLines: number;
   subLines: number;
   titleOnly: boolean;
-  nodes: RNode[];
-  edges: REdge[];
-  headers: RHeader[];
+  nodes: RNode[]; // map + kanban cards
+  edges: REdge[]; // map only
+  headers: RHeader[]; // map column heads / kanban column heads
+  gantt?: GanttModel; // gantt only
   contentRight: number;
   contentBottom: number;
 }
@@ -108,35 +113,68 @@ export function modelFromGraph(
     vis = new Set([...baseVis].filter((id) => focusVis.has(id)));
   }
 
+  const { titleLines, subLines } = resolveLayout(cfg.layout);
+  const view: ViewMode = ui.view ?? cfg.view ?? "map";
+  const base = {
+    view,
+    title: cfg.title || "",
+    titleLines,
+    subLines,
+    titleOnly: ui.titleOnly === true,
+  };
+  const toRNode = (id: string): RNode => {
+    const n = nodes[id];
+    return {
+      id: n.id,
+      x: n.x!,
+      y: n.y!,
+      w: n.w!,
+      h: n.h!,
+      color: n.color,
+      title: n.title,
+      sub: n.sub,
+      meta: n.meta,
+      labels: n.labels,
+      labelColors: n.labelColors,
+      progress: n.progress,
+      bars: n.bars,
+      hasKids: n.children.size > 0,
+      collapsed: collapsed.has(n.id),
+    };
+  };
+
+  // filters/collapse/focus applied above, BEFORE any layout, so chips, saved
+  // views, and search behave identically in all three views.
+  if (view === "gantt") {
+    const gantt = layoutGantt(cfg, nodes, byLevel, vis);
+    return {
+      ...base,
+      nodes: [],
+      edges: [],
+      headers: [],
+      gantt,
+      contentRight: gantt.contentRight,
+      contentBottom: gantt.contentBottom,
+    };
+  }
+
+  if (view === "kanban") {
+    const board = layoutKanban(cfg, nodes, byLevel, vis);
+    return {
+      ...base,
+      nodes: board.columns.flat().map(toRNode),
+      edges: [],
+      headers: board.headers,
+      contentRight: board.contentRight,
+      contentBottom: board.contentBottom,
+    };
+  }
+
   const { order, levelX, contentBottom, contentRight } = orderAndLayout(
     cfg,
     nodes,
     byLevel,
     vis
-  );
-
-  // nodes in draw order (level by level, DFS order within each)
-  const rNodes: RNode[] = order.flatMap((ids) =>
-    ids.map((id) => {
-      const n = nodes[id];
-      return {
-        id: n.id,
-        x: n.x!,
-        y: n.y!,
-        w: n.w!,
-        h: n.h!,
-        color: n.color,
-        title: n.title,
-        sub: n.sub,
-        meta: n.meta,
-        labels: n.labels,
-        labelColors: n.labelColors,
-        progress: n.progress,
-        bars: n.bars,
-        hasKids: n.children.size > 0,
-        collapsed: collapsed.has(n.id),
-      };
-    })
   );
 
   const edges: REdge[] = [];
@@ -163,14 +201,10 @@ export function modelFromGraph(
     .map((lvl, i) => ({ x: levelX[i], label: lvl.label || "" }))
     .filter((h) => h.label);
 
-  const { titleLines, subLines } = resolveLayout(cfg.layout);
   return {
-    view: "map",
-    title: cfg.title || "",
-    titleLines,
-    subLines,
-    titleOnly: ui.titleOnly === true,
-    nodes: rNodes,
+    ...base,
+    // nodes in draw order (level by level, DFS order within each)
+    nodes: order.flatMap((ids) => ids.map(toRNode)),
     edges,
     headers,
     contentRight,

@@ -12,16 +12,20 @@ export function buildEdges(
   byLevel: MNode[][],
   resolveLink?: Resolver
 ): Map<string, string> {
-  // index each level by basename and by `title` frontmatter for link resolution
+  // index each level by basename, `title`, and `id` frontmatter for link
+  // resolution (`id` makes pm-style parentId -> id hierarchies resolve)
   const levelIndex = byLevel.map((arr) => {
     const byBase: Record<string, string> = {},
-      byTitle: Record<string, string> = {};
+      byTitle: Record<string, string> = {},
+      byId: Record<string, string> = {};
     arr.forEach((n) => {
       byBase[n.basename] = n.id;
       const t = scalarStr(n.fm.title).trim();
       if (t) byTitle[t] = n.id;
+      const i = scalarStr(n.fm.id).trim();
+      if (i) byId[i] = n.id;
     });
-    return { byBase, byTitle };
+    return { byBase, byTitle, byId };
   });
   const levelByIdNum: Record<string, number> = {};
   cfg.levels.forEach((l, i) => (levelByIdNum[l.id] = i));
@@ -49,7 +53,12 @@ export function buildEdges(
     const key = linkKey(raw);
     const dest = resolveLink ? resolveLink(key, sourcePath) : null;
     if (dest && nodes[dest] && nodes[dest].levelIdx === li) return dest;
-    return levelIndex[li].byBase[key] || levelIndex[li].byTitle[key] || null;
+    return (
+      levelIndex[li].byBase[key] ||
+      levelIndex[li].byTitle[key] ||
+      levelIndex[li].byId[key] ||
+      null
+    );
   };
   (cfg.edges || []).forEach((e) => {
     const fi = levelByIdNum[e.from],
