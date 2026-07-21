@@ -31,7 +31,7 @@ const targets = [
 
 const common = {
   bundle: true,
-  target: "es2018",
+  target: "es2022",
   sourcemap: prod ? false : "inline",
   treeShaking: true,
   logLevel: "info",
