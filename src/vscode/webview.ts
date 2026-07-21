@@ -1,5 +1,5 @@
 import { wrap, subWidth } from "../graph";
-import { MapPayload, VNode } from "./payload";
+import type { RenderModel, RNode } from "../graph";
 
 // Webview renderer: pure SVG drawing from the host-computed payload. No graph
 // logic here except `wrap` (text fitting). Click a card -> ask the host to open
@@ -10,7 +10,7 @@ import { MapPayload, VNode } from "./payload";
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void };
 declare global {
   interface Window {
-    __mmPayload: MapPayload;
+    __mmPayload: RenderModel;
   }
 }
 
@@ -56,7 +56,7 @@ data.edges.forEach((e) => {
   );
 });
 
-function drawLabels(g: SVGElement, n: VNode) {
+function drawLabels(g: SVGElement, n: RNode) {
   const top = n.y + 7,
     h = 15,
     size = 9,
@@ -80,7 +80,7 @@ function drawLabels(g: SVGElement, n: VNode) {
   }
 }
 
-function drawBar(g: SVGElement, n: VNode) {
+function drawBar(g: SVGElement, n: RNode) {
   const x = n.x + 14,
     w = n.w - 28,
     y = n.y + n.h - 14;

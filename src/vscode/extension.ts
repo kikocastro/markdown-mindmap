@@ -3,16 +3,11 @@ import { parse as parseYaml } from "yaml";
 import {
   MapCfg,
   NoteLike,
+  RenderModel,
   Resolver,
-  collectNodes,
-  buildEdges,
-  isSecondary,
-  computeVisible,
-  orderAndLayout,
-  resolveLayout,
+  buildRenderModel,
   validateConfig,
 } from "../graph";
-import { MapPayload, VEdge, VNode } from "./payload";
 
 // ============================================================================
 // Markdown Mindmap — VS Code adapter. Reuses the pure core (../graph). Reads the
@@ -87,70 +82,12 @@ async function openMap(context: vscode.ExtensionContext) {
     return hit ? hit.path : null;
   };
 
-  const { nodes, byLevel } = collectNodes(cfg, notes);
-  const edgeKind = buildEdges(cfg, nodes, byLevel, resolver);
-  const vis = computeVisible(nodes, new Set(), {}, cfg);
-  const { levelX, contentRight, contentBottom } = orderAndLayout(
-    cfg,
-    nodes,
-    byLevel,
-    vis
-  );
-
-  const vNodes: VNode[] = Object.values(nodes)
-    .filter((n) => vis.has(n.id))
-    .map((n) => ({
-      id: n.id,
-      x: n.x!,
-      y: n.y!,
-      w: n.w!,
-      h: n.h!,
-      color: n.color,
-      title: n.title,
-      sub: n.sub,
-      meta: n.meta,
-      labels: n.labels,
-      progress: n.progress,
-      bars: n.bars,
-      hasKids: [...n.children].some((c) => vis.has(c)),
-    }));
-
-  const edges: VEdge[] = [];
-  Object.values(nodes).forEach((p) => {
-    if (!vis.has(p.id)) return;
-    [...p.children]
-      .filter((c) => vis.has(c))
-      .forEach((cid) => {
-        const c = nodes[cid];
-        edges.push({
-          x1: p.x! + p.w!,
-          y1: p.y! + p.h! / 2,
-          x2: c.x!,
-          y2: c.y! + c.h! / 2,
-          color: p.color,
-          secondary: isSecondary(edgeKind, p.id, cid),
-        });
-      });
-  });
-
-  const headers = cfg.levels
-    .map((lvl, i) => ({ x: levelX[i], label: lvl.label || "" }))
-    .filter((h) => h.label);
-
-  const payload: MapPayload = {
-    title: cfg.title || "Markdown Mindmap",
-    titleLines: resolveLayout(cfg.layout).titleLines,
-    subLines: resolveLayout(cfg.layout).subLines,
-    nodes: vNodes,
-    edges,
-    headers,
-    contentRight,
-    contentBottom,
-  };
+  // the shared core computes the whole drawable model; the webview only renders it
+  const payload: RenderModel = buildRenderModel(cfg, notes, resolver);
 
   const panel = vscode.window.createWebviewPanel(
     "markdownMindmap",
-    payload.title,
+    payload.title || "Markdown Mindmap",
     vscode.ViewColumn.Active,
     {
       enableScripts: true,
@@ -197,7 +134,7 @@ function parseFrontmatter(text: string): Record<string, unknown> {
 function htmlShell(
   webview: vscode.Webview,
   scriptUri: vscode.Uri,
-  payload: MapPayload
+  payload: RenderModel
 ): string {
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource};`;

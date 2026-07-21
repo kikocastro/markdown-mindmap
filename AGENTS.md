@@ -8,13 +8,14 @@ Leveled left-to-right mind maps from note frontmatter links, with **two adapters
 
 ## Architecture
 
-- `src/graph.ts` — **pure core.** Zero imports, no host coupling. Node collection, edges, visibility, layout, search. All unit-tested. **Shared by both adapters.**
+- `src/core/` — **pure core.** No host coupling. Modules: `config` (types + defaults), `helpers`, `collect`, `edges`, `visibility`, `layout-tree`, `views`, `render-model` (`buildRenderModel` -> the serializable `RenderModel` both adapters draw). All unit-tested. **Shared by both adapters.**
+- `src/graph.ts` — re-exporting barrel over `src/core/`; every import path goes through it.
 - `src/obsidian/main.ts` — **Obsidian adapter**, the only file importing `obsidian`. Owns DOM/SVG, toolbar, pan/zoom, the note `Modal`. Builds `main.js`.
-- `src/vscode/` — **VS Code adapter.** `extension.ts` (host: reads workspace markdown, runs the core, posts a `payload.ts` view-model), `webview.ts` (pure SVG drawing + pan/zoom + click-to-open). Builds `dist/extension.js` + `dist/webview.js`.
+- `src/vscode/` — **VS Code adapter.** `extension.ts` (host: reads workspace markdown, runs `buildRenderModel`, posts the `RenderModel`), `webview.ts` (pure SVG drawing + pan/zoom + click-to-open). Builds `dist/extension.js` + `dist/webview.js`.
 - `styles.css` — Obsidian theming via CSS variables. (VS Code styling is inline in the webview, using `--vscode-*` vars.)
 - `test/` — vitest, exercising the core through plain `NoteLike` data (host-agnostic).
 
-**Invariant: keep `src/graph.ts` host-free.** No `from "obsidian"`, no `from "vscode"`, no DOM. New pure logic and its tests go there; only host glue goes in the adapters.
+**Invariant: keep `src/graph.ts` (and everything under `src/core/`) host-free.** No `from "obsidian"`, no `from "vscode"`, no DOM. New pure logic and its tests go there; only host glue goes in the adapters.
 
 ## Commands
 
