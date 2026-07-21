@@ -6,10 +6,10 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      // measure the pure core only; the host adapters (Obsidian/VS Code DOM) are
-      // validated by build + manual run, not unit tests
+      // measure the pure core only; the host adapters (Obsidian/VS Code DOM) and
+      // the shared SVG renderer are validated by build + manual run, not unit tests
       include: ["src/**/*.ts"],
-      exclude: ["src/obsidian/**", "src/vscode/**"],
+      exclude: ["src/obsidian/**", "src/vscode/**", "src/render/**"],
       reporter: ["text", "text-summary", "json-summary"],
       thresholds: {
         lines: 100,

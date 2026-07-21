@@ -159,8 +159,8 @@ function htmlShell(
   .mm-t1 { font: 700 12px var(--vscode-font-family); fill: var(--vscode-editor-foreground); }
   .mm-t2 { font: 10.5px var(--vscode-font-family); fill: var(--vscode-descriptionForeground); }
   .mm-meta { font: 9.5px var(--vscode-font-family); fill: var(--vscode-descriptionForeground); }
-  .mm-label { fill: var(--vscode-badge-background); stroke: var(--vscode-widget-border); }
-  .mm-label-t { font: 600 9px var(--vscode-font-family); fill: var(--vscode-badge-foreground); text-anchor: middle; }
+  .mm-label { stroke-width: 1; }
+  .mm-label-t { font-family: var(--vscode-font-family); font-weight: 600; text-anchor: middle; }
   .mm-track { fill: var(--vscode-widget-border); }
   .mm-barlbl { font: 700 9px var(--vscode-font-family); fill: var(--vscode-descriptionForeground); }
 </style>

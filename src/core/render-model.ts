@@ -3,12 +3,18 @@
 // webview verbatim; the Obsidian adapter draws it in place. No DOM here — the
 // renderer (src/render) is the only code that turns this into SVG.
 
-import { MapCfg, NoteLike, Resolver, resolveLayout } from "./config";
+import {
+  MNode,
+  MapCfg,
+  NoteLike,
+  Resolver,
+  resolveLayout,
+  validateConfig,
+} from "./config";
 import { collectNodes } from "./collect";
 import { buildEdges, isSecondary } from "./edges";
 import { computeVisible, focusVisible } from "./visibility";
 import { orderAndLayout } from "./layout-tree";
-import { validateConfig } from "./config";
 
 export type ViewMode = "map";
 
@@ -78,7 +84,18 @@ export function buildRenderModel(
   validateConfig(cfg);
   const { nodes, byLevel } = collectNodes(cfg, notes);
   const edgeKind = buildEdges(cfg, nodes, byLevel, resolveLink);
+  return modelFromGraph(cfg, nodes, byLevel, edgeKind, ui);
+}
 
+// Same flattening for a caller that already collected the graph (the Obsidian
+// adapter redraws many times per render and keeps its MNodes for the note dialog).
+export function modelFromGraph(
+  cfg: MapCfg,
+  nodes: Record<string, MNode>,
+  byLevel: MNode[][],
+  edgeKind: Map<string, string>,
+  ui: UiState = {}
+): RenderModel {
   const collapsed = new Set(ui.collapsed ?? []);
   const filters: Record<string, Set<string>> = {};
   Object.entries(ui.filters ?? {}).forEach(

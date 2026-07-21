@@ -306,6 +306,7 @@
   opacity: 0.18;
 }
 .mm-node .mm-box {
+  fill: var(--background-secondary);
   stroke-width: 1.5;
 }
 .mm-node.mm-sel .mm-box {

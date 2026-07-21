@@ -16,7 +16,6 @@ import {
   confirmModal,
 } from "./modals";
 import {
-  AUTO_COLORS,
   MapCfg,
   MNode,
   NoteLike,
@@ -27,23 +26,21 @@ import {
   isSecondary,
   siblings,
   filterOptions,
-  focusVisible,
-  resolveLayout,
-  computeVisible,
-  orderAndLayout,
+  modelFromGraph,
   searchMatch,
   upsertView,
   viewNameTaken,
   initialView,
-  wrap,
-  subWidth,
   validateConfig,
 } from "../graph";
+import { renderModel } from "../render/renderer";
+import { attachPanZoom } from "../render/panzoom";
 
 // ============================================================================
 // Markdown Mindmap — render a leveled left->right tree from note frontmatter links.
 // One ```mindmap code block = one map. Config is inline YAML (see README).
-// Pure logic lives in src/graph.ts; SVG/DOM helpers in ./svg, Modals in ./modals.
+// Pure logic lives in src/graph.ts (src/core/); the SVG drawing is the shared
+// renderer in src/render; Modals live in ./modals.
 // ============================================================================
 
 export default class NotesMindmapPlugin extends Plugin {
@@ -83,7 +80,6 @@ function renderMindmap(
 ) {
   const cfg = parseYaml(source) as MapCfg;
   validateConfig(cfg);
-  const { titleLines, subLines } = resolveLayout(cfg.layout); // lines shown before truncation
 
   // adapt the vault to the pure layer: plain NoteLike data + a TFile lookup for the modal
   const fileByPath: Record<string, TFile> = {};
@@ -109,7 +105,6 @@ function renderMindmap(
   let savedViews: SavedViewCfg[] = [...(cfg.views || [])];
   let selectedView = "";
   let searchTerm = "";
-  const view = { x: 20, y: 8, k: 1 };
   let selected: string | null = null;
   let focused: string | null = null;
   // hide sub/meta/bars/labels on cards, show only the title.
@@ -598,338 +593,67 @@ function renderMindmap(
     ).open();
   }
 
-  // ---- layout + draw (re-runnable) ----
+  // ---- layout + draw (re-runnable, shared renderer) ----
   let contentBottom = 64,
     contentRight = 0;
   function draw() {
-    while (rootG.firstChild) rootG.removeChild(rootG.firstChild);
-    links = [];
-    nodeEls = {};
+    const model = modelFromGraph(cfg, nodes, byLevel, edgeKind, {
+      collapsed: [...collapsed],
+      filters: Object.fromEntries(
+        Object.entries(filters).map(([prop, sel]) => [prop, [...sel]])
+      ),
+      focused,
+      titleOnly,
+    });
+    contentBottom = model.contentBottom;
+    contentRight = model.contentRight;
+
+    const handles = renderModel(activeDocument, rootG, model, {
+      onNodeClick: openNode,
+      onToggle: (id) => {
+        if (collapsed.has(id)) collapsed.delete(id);
+        else collapsed.add(id);
+        draw();
+      },
+      onNodeEnter: (id) => {
+        if (!searchTerm) highlight(id);
+      },
+      onNodeLeave: reapply,
+    });
+    links = handles.links;
+    nodeEls = handles.nodeEls;
     upAdj = {};
     dnAdj = {};
-
-    const baseVis = computeVisible(nodes, collapsed, filters, cfg);
-    const focusVis = focusVisible(nodes, focused);
-    const vis = focused
-      ? new Set([...baseVis].filter((id) => focusVis.has(id)))
-      : baseVis;
-    const visN = (id: string) => vis.has(id);
-    const {
-      order,
-      levelX,
-      contentBottom: cb,
-      contentRight: cr,
-    } = orderAndLayout(cfg, nodes, byLevel, vis);
-    contentBottom = cb;
-    contentRight = cr;
-
-    const linkLayer = svgEl("g", {}, rootG),
-      nodeLayer = svgEl("g", {}, rootG);
-
-    // column headers
-    cfg.levels.forEach((lvl, li) => {
-      if (lvl.label)
-        svgEl(
-          "text",
-          { class: "mm-colhead", x: levelX[li], y: 36 },
-          rootG
-        ).textContent = lvl.label;
+    model.edges.forEach((e) => {
+      (dnAdj[e.a] = dnAdj[e.a] || new Set()).add(e.b);
+      (upAdj[e.b] = upAdj[e.b] || new Set()).add(e.a);
     });
 
-    // edges (parent right-mid -> child left-mid); secondary links draw dashed + fainter
-    Object.values(nodes).forEach((p) => {
-      if (!visN(p.id)) return;
-      [...p.children].filter(visN).forEach((cid) => {
-        const c = nodes[cid];
-        const sec = isSecondary(edgeKind, p.id, cid);
-        const x1 = p.x! + p.w!,
-          y1 = p.y! + p.h! / 2,
-          x2 = c.x!,
-          y2 = c.y! + c.h! / 2,
-          mx = (x1 + x2) / 2;
-        const path = svgEl(
-          "path",
-          {
-            class: "mm-link" + (sec ? " mm-also" : ""),
-            d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`,
-            stroke: p.color,
-            "stroke-width": 2.5,
-          },
-          linkLayer
-        );
-        links.push({ el: path, a: p.id, b: c.id });
-        (dnAdj[p.id] = dnAdj[p.id] || new Set()).add(c.id);
-        (upAdj[c.id] = upAdj[c.id] || new Set()).add(p.id);
-      });
-    });
-
-    // nodes
-    cfg.levels.forEach((_, li) =>
-      order[li].forEach((id) => {
-        const n = nodes[id];
-        const hasKids = n.children.size > 0;
-        const hasBar = !titleOnly && (n.progress != null || n.bars.length > 0);
-        const g = svgEl("g", { class: "mm-node" }, nodeLayer);
-        svgEl(
-          "rect",
-          {
-            class: "mm-box",
-            x: n.x,
-            y: n.y,
-            width: n.w,
-            height: n.h,
-            rx: 9,
-            fill: "var(--background-secondary)",
-            stroke: n.color,
-          },
-          g
-        );
-
-        // text block: padded from top/bottom, with bars/labels reserved at the bottom
-        const padR = hasKids ? 42 : 16;
-        const labelH = !titleOnly && n.labels.length ? 24 : 0;
-        const barH = hasBar ? 20 : 0;
-        const textPadTop = 14;
-        const textPadBottom = 14;
-        const lines: { t: string; cls: string; size: number; lh: number }[] =
-          [];
-        let truncated = false;
-        const titleWrapped = wrap(n.title, n.w! - 14 - padR, 12, titleLines);
-        if (
-          titleWrapped.join(" ").length <
-          n.title.replace(/\s+/g, " ").trim().length
-        )
-          truncated = true;
-        titleWrapped.forEach((t) =>
-          lines.push({ t, cls: "mm-t1", size: 12, lh: 16 })
-        );
-        if (!titleOnly && n.sub) {
-          const subWrapped = wrap(n.sub, subWidth(n.w!), 10.5, subLines);
-          if (
-            subWrapped.join(" ").length <
-            n.sub.replace(/\s+/g, " ").trim().length
-          )
-            truncated = true;
-          subWrapped.forEach((t) =>
-            lines.push({ t, cls: "mm-t2", size: 10.5, lh: 15 })
-          );
-        }
-        if (!titleOnly && n.meta)
-          lines.push({ t: n.meta, cls: "mm-meta", size: 9.5, lh: 14 });
-        const totalH = lines.reduce((s, b) => s + b.lh, 0);
-        const firstSize = lines[0]?.size || 12;
-        const textTop = n.y! + textPadTop;
-        const textBottom = n.y! + n.h! - textPadBottom - barH - labelH;
-        const freeH = Math.max(totalH, textBottom - textTop);
-        let ty =
-          hasBar || labelH
-            ? textTop + firstSize
-            : textTop + (freeH - totalH) / 2 + firstSize;
-        lines.forEach((b) => {
-          svgEl(
-            "text",
-            { class: b.cls, x: n.x! + 14, y: ty, "font-size": b.size },
-            g
-          ).textContent = b.t;
-          ty += b.lh;
-        });
-
-        // native tooltip with the full text when title/subtitle was clipped
-        if (truncated)
-          svgEl("title", {}, g).textContent =
-            n.title + (n.sub ? "\n" + n.sub : "");
-
-        // bottom strip: label pills, then the progress/category bar as the last row
-        if (labelH) drawLabels(g, n);
-        if (hasBar) drawBar(g, n);
-
-        // collapse toggle in the top-right corner (clear of the right-edge link connector)
-        if (hasKids) {
-          const cx = n.x! + n.w! - 16,
-            cy = n.y! + 15,
-            isC = collapsed.has(n.id);
-          // collapsed toggles get a distinct class + bigger circle so contracted subtrees stand out
-          const tg = svgEl(
-            "g",
-            { class: "mm-toggle" + (isC ? " mm-collapsed" : "") },
-            g
-          );
-          svgEl("circle", { cx, cy, r: isC ? 9 : 8 }, tg);
-          svgEl("text", { x: cx, y: cy + 4 }, tg).textContent = isC ? "+" : "−";
-          tg.addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            if (isC) collapsed.delete(n.id);
-            else collapsed.add(n.id);
-            draw();
-          });
-        }
-
-        g.addEventListener("mouseenter", () => {
-          if (!searchTerm) highlight(n.id);
-        });
-        g.addEventListener("mouseleave", reapply);
-        g.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          openNode(n.id);
-        });
-        nodeEls[n.id] = g;
-      })
-    );
-
-    apply();
+    panZoom.apply();
     reapply();
     rememberActive();
   }
 
-  // small value pills along the card's bottom strip; drops any that don't fit on one row.
-  // sit above the bar when there is one, so the bar is always the card's last row.
-  function drawLabels(g: SVGElement, n: MNode) {
-    const hasBar = n.progress != null || n.bars.length > 0;
-    const top = n.y! + n.h! - (hasBar ? 53 : 31),
-      h = 15,
-      size = 9,
-      pad = 11;
-    const maxX = n.x! + n.w! - 12;
-    let bx = n.x! + 12;
-    for (let i = 0; i < n.labels.length; i++) {
-      const t = n.labels[i];
-      // ponytail: width estimated from char count — SVG has no cheap text metrics, fine for short labels
-      const w = Math.ceil(t.length * size * 0.62) + pad * 2;
-      if (bx + w > maxX) break;
-      const color = n.labelColors[i] || AUTO_COLORS[i % AUTO_COLORS.length];
-      svgEl(
-        "rect",
-        {
-          class: "mm-label",
-          x: bx,
-          y: top,
-          width: w,
-          height: h,
-          rx: 7,
-          fill: color,
-          "fill-opacity": 0.14,
-          stroke: color,
-        },
-        g
-      );
-      svgEl(
-        "text",
-        {
-          class: "mm-label-t",
-          x: bx + w / 2,
-          y: top + 11,
-          "font-size": size,
-          fill: color,
-        },
-        g
-      ).textContent = t;
-      bx += w + 5;
-    }
-  }
-
-  // progress bar (0-100) and/or stacked category bar, pinned to the card's last row
-  function drawBar(g: SVGElement, n: MNode) {
-    const x = n.x! + 14,
-      w = n.w! - 28,
-      y = n.y! + n.h! - 23;
-    if (n.progress != null) {
-      const p = Math.max(0, Math.min(100, n.progress));
-      svgEl("rect", { class: "mm-track", x, y, width: w, height: 6, rx: 3 }, g);
-      svgEl(
-        "rect",
-        { x, y, width: (w * p) / 100, height: 6, rx: 3, fill: n.color },
-        g
-      );
-      svgEl(
-        "text",
-        { class: "mm-barlbl", x: x + w, y: y - 3, "text-anchor": "end" },
-        g
-      ).textContent = p + "%";
-    } else if (n.bars.length) {
-      const total = n.bars.reduce((s, [, c]) => s + c, 0) || 1;
-      let bx = x;
-      n.bars.forEach(([cat, c, color]) => {
-        const seg = (w * c) / total;
-        const r = svgEl(
-          "rect",
-          {
-            x: bx,
-            y,
-            width: Math.max(0, seg - 1.5),
-            height: 7,
-            rx: 2,
-            fill: color,
-          },
-          g
-        );
-        svgEl("title", {}, r).textContent = `${c} ${cat}`;
-        bx += seg;
-      });
-      svgEl(
-        "text",
-        { class: "mm-barlbl", x: x + w, y: y - 3, "text-anchor": "end" },
-        g
-      ).textContent = String(total);
-    }
-  }
-
-  // ---- pan / zoom / fit ----
-  const apply = () =>
-    rootG.setAttribute(
-      "transform",
-      `translate(${view.x},${view.y}) scale(${view.k})`
-    );
-  function fit() {
-    const w = svg.clientWidth || wrapEl.clientWidth,
-      h = svg.clientHeight || 600;
+  // ---- pan / zoom / fit (shared with the webview) ----
+  const panZoom = attachPanZoom({
+    stage,
+    rootG,
+    getViewport: () => ({
+      w: svg.clientWidth || wrapEl.clientWidth,
+      h: svg.clientHeight || 600,
+    }),
+    getContent: () => ({ right: contentRight, bottom: contentBottom }),
     // the sidebar overlays the left of the stage; keep content clear of it
-    const barW = toolbar.classList.contains("mm-bar-collapsed")
-      ? 0
-      : toolbar.offsetWidth + 16;
-    view.k =
-      Math.min(
-        (w - barW) / (contentRight + 40),
-        h / (contentBottom + 40),
-        1.4
-      ) || 1;
-    view.x = barW + 20;
-    view.y = 8;
-    apply();
+    getInsetLeft: () =>
+      toolbar.classList.contains("mm-bar-collapsed")
+        ? 0
+        : toolbar.offsetWidth + 16,
+    listenWindow: (type, handler) =>
+      plugin.registerDomEvent(window, type, handler),
+  });
+  function fit() {
+    panZoom.fit();
   }
-  let drag: { x: number; y: number } | null = null;
-  stage.addEventListener("mousedown", (e) => {
-    drag = { x: e.clientX - view.x, y: e.clientY - view.y };
-    stage.classList.add("mm-drag");
-  });
-  plugin.registerDomEvent(window, "mousemove", (e: MouseEvent) => {
-    if (drag) {
-      view.x = e.clientX - drag.x;
-      view.y = e.clientY - drag.y;
-      apply();
-    }
-  });
-  plugin.registerDomEvent(window, "mouseup", () => {
-    drag = null;
-    stage.classList.remove("mm-drag");
-  });
-  stage.addEventListener(
-    "wheel",
-    (e) => {
-      e.preventDefault();
-      const step = Math.min(0.06, Math.abs(e.deltaY) * 0.0009),
-        f = e.deltaY < 0 ? 1 + step : 1 / (1 + step);
-      const nk = Math.max(0.2, Math.min(3, view.k * f)),
-        r = nk / view.k;
-      const rect = stage.getBoundingClientRect(),
-        px = e.clientX - rect.left,
-        py = e.clientY - rect.top;
-      view.x = px - (px - view.x) * r;
-      view.y = py - (py - view.y) * r;
-      view.k = nk;
-      apply();
-    },
-    { passive: false }
-  );
   // background click clears only the sticky highlight; focus stays until its ticket ✕
   stage.addEventListener("click", () => {
     selected = null;
