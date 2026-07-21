@@ -134,13 +134,22 @@ filter: [status]
 ### Top-level keys
 - **title** — heading in the toolbar
 - **height** — component height px (default 900)
+- **view** — initial view: \`map\` (default), \`gantt\`, or \`kanban\`
 - **levels** — columns, left to right (**required**)
 - **edges** — parent → child links between levels
+- **gantt** — gantt view config: \`{ start, end, progress?, scale?, groupRows? }\` (field names; scale: week/month/quarter)
+- **kanban** — kanban view config: \`{ groupBy, columns?, colors? }\`
 - **filter** — properties shown as chip filters
 - **filterLabels** — rename a filter group's heading
 - **layout** — override card/column sizing
 - **properties: true** — show all frontmatter in the note dialog
-- **views** — saved filter selections (managed by the toolbar)
+- **views** — saved views: filters + view mode (managed by the toolbar)
+
+### Views
+Configuring \`gantt:\` or \`kanban:\` adds a **View** switcher to the toolbar; the same
+filtered tree renders as a mind map, a gantt (bars start→end, progress fill, a
+diamond when start = end or one date is missing), or a kanban board (columns by
+\`groupBy\`). Filters, search, collapse, and saved views apply in every view.
 
 ### Each level
 - **id** (required) — referenced by edges
@@ -167,8 +176,9 @@ Field values are frontmatter property names; dotted paths work everywhere (\`cus
 
 ### Interactions
 - **Search** — spotlight matching cards, dim the rest
+- **View switcher** — flip between map / gantt / kanban
 - **Filter chips** — multi-select per property (OR within, AND across)
-- **Saved views** — save / apply / edit / delete a filter combination
+- **Saved views** — save / apply / edit / delete a filter + view-mode combination
 - **Hover** a card — highlight its full up/down lineage
 - **Click** a card — dialog with its linked parents, siblings, and children (click to jump), properties, and the rendered note
 - **Focus** (from the dialog) — show a node, its ancestors, and primary descendants; persists until you click empty map space to clear

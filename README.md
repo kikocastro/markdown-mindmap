@@ -23,6 +23,7 @@ It ships as **two adapters over one shared core** (`src/graph.ts`): the **Obsidi
 ## Features
 
 - **Live from frontmatter.** Folders become columns; frontmatter links become edges. Add or remove a note and the map updates.
+- **Three views over one dataset.** The same block renders as a mind **map**, a **gantt** (bars by start/due, progress fill, milestone diamonds), or a **kanban** board (columns by any field) — switch from the toolbar, filters and search apply everywhere.
 - **Per-level card design.** Pick which fields show as title / subtitle / meta per level; cards auto-size to their content.
 - **Edges from links.** A `[[wikilink]]`, plain title, basename, list, or nested field (`customFields.serves`) on either end of an edge.
 - **Secondary (dashed) links.** Mark cross-links that should draw dashed and stay out of the layout spine (e.g. "also relates to").
@@ -96,13 +97,16 @@ filter: [status]
 | -------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `title`        | string          | Heading in the toolbar.                                                                                              |
 | `height`       | number          | Component height in px (default `900`).                                                                              |
+| `view`         | string          | Initial view: `map` (default), `gantt`, or `kanban`.                                                                 |
 | `levels`       | list            | Columns, left to right. **Required.**                                                                                |
 | `edges`        | list            | Parent → child links between levels.                                                                                 |
+| `gantt`        | map             | Gantt view config (see [Gantt & kanban views](#gantt--kanban-views)). Configuring it adds the view to the switcher.  |
+| `kanban`       | map             | Kanban view config (same section). Configuring it adds the view to the switcher.                                     |
 | `filter`       | list of strings | Frontmatter properties exposed as multi-select chip filters.                                                         |
 | `filterLabels` | map             | Rename a filter group's heading, e.g. `{ customFields.quarters: Quarter }`. Unlisted properties keep their raw name. |
 | `layout`       | map             | Override card/column sizing (below). All keys optional.                                                              |
 | `properties`   | boolean         | When `true`, the note dialog shows all frontmatter as a table above the rendered note.                               |
-| `views`        | list            | Saved filter selections, managed by the toolbar's saved-view controls.                                               |
+| `views`        | list            | Saved views (filters + view mode), managed by the toolbar's saved-view controls.                                     |
 
 **`layout`** (all optional, defaults shown)
 
@@ -162,7 +166,57 @@ All card field values are frontmatter property names. Dotted paths work everywhe
 
 ### How links resolve
 
-A `via` value is matched, in order, against: Obsidian's own link resolution (`[[wikilink]]`), then the target's **basename**, then its `title` frontmatter. A value may be a single link or a list. A note's **first non-secondary** parent is its layout parent (single-parent tree); any extra parents still draw edges.
+A `via` value is matched, in order, against: Obsidian's own link resolution (`[[wikilink]]`), then the target's **basename**, then its `title` frontmatter, then its `id` frontmatter (so pm-style `parentId: p-broker-operator` hierarchies link up). A value may be a single link or a list. A note's **first non-secondary** parent is its layout parent (single-parent tree); any extra parents still draw edges.
+
+## Gantt & kanban views
+
+The same collected + filtered tree can render as a **gantt** or a **kanban** board. Add the config block(s) and a view switcher appears in the toolbar; set `view:` to make one the default. Filters, search, collapse, and saved views apply in every view — a saved view pins **filters + view mode**, so you can keep e.g. a "devops · gantt" view one click away.
+
+````markdown
+```mindmap
+title: 2026 Roadmap
+view: gantt
+levels:
+  - id: tasks
+    from: strategy/2026 Roadmap_tasks
+    where: { parentId: null }
+    card: { title: title, labels: [status], meta: [start, due], progress: progress }
+  - id: subtasks
+    from: strategy/2026 Roadmap_tasks
+    card: { title: title, progress: progress }
+edges:
+  - { from: tasks, to: subtasks, via: parentId }
+gantt: { start: start, end: due }
+kanban: { groupBy: status }
+filter: [status, tags]
+```
+````
+
+**`gantt`** — field names are frontmatter properties, like everything else:
+
+| Key         | Type                           | Meaning                                                                                                    |
+| ----------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `start`     | field                          | Start date (ISO, e.g. `2026-06-09`). **Required.**                                                         |
+| `end`       | field                          | End/due date. **Required.**                                                                                |
+| `progress`  | field (0–100)                  | Bar fill. Defaults to the card's `progress` field.                                                         |
+| `scale`     | `week` \| `month` \| `quarter` | Axis tick unit (default `month`).                                                                          |
+| `groupRows` | bool                           | Default `true`: rows follow the tree order with subtasks indented under parents. `false`: flat path order. |
+
+Rows render as bars from `start` to `end` with a progress fill. A task whose `start` equals its `end` (or that has only one of the two) renders as a **milestone diamond**. Tasks with neither date get a plain row. Click a row to open the note.
+
+**`kanban`**
+
+| Key       | Type            | Meaning                                                                                                  |
+| --------- | --------------- | -------------------------------------------------------------------------------------------------------- |
+| `groupBy` | field           | Column key (e.g. `status`). **Required.**                                                                |
+| `columns` | list of strings | Explicit column order. Unlisted values found in the data are appended; valueless notes land in `(none)`. |
+| `colors`  | map             | `value → hex` for column headers. Unlisted columns cycle the auto palette.                               |
+
+Cards are the same cards as the map (title/sub/meta/progress/labels config all apply), stacked into columns by `groupBy` value.
+
+### Migrating from the Project Manager plugin
+
+Task notes written by Project Manager (`pm-task: true` frontmatter with `status`, `start`, `due`, `progress`, `priority`, `assignees`, `tags`, `parentId`/`subtaskIds`, `customFields.*`) render as-is: point a level's `from:` at your `*_tasks` folder, add the `gantt:`/`kanban:` blocks above, done. The plugin never writes task files — edit the note and the view re-renders. Editing, drag-rescheduling, notifications, recurring tasks, and the table view are deliberate non-goals.
 
 ## Advanced example
 
@@ -189,8 +243,9 @@ filter: [horizon, kind, status]
 ## Interactions
 
 - **Search** box — spotlight cards matching title / sub / meta, dim the rest.
+- **View switcher** — flip the same data between map / gantt / kanban (shown when `gantt:` or `kanban:` is configured).
 - **Filter chips** — multi-select per property (OR within, AND across), with options sorted alphabetically.
-- **Saved views** — save the current filter combination, apply it from the dropdown, edit it, or delete it. Saved views are written to the block's `views:` key.
+- **Saved views** — save the current filter combination + view mode, apply it from the dropdown, edit it, or delete it. Saved views are written to the block's `views:` key.
 - **Hover** a card — highlight its full up/down lineage.
 - **Click** a card — open a dialog: title + file name, level badge, progress/demand breakdown, its **linked parents, siblings, and children** (click one to jump the dialog there), optional frontmatter properties, the rendered note, "Open note", and "Focus".
 - **Focus** from a card dialog — show that node, its ancestors, and its primary descendants; click empty map space to clear focus.
@@ -233,13 +288,14 @@ The same core also drives a VS Code extension (`src/vscode/`). Unlike Obsidian, 
 - **Config source:** the active note's first ` ```mindmap ` block (same YAML as Obsidian).
 - **`from:` paths are relative to the workspace root**, and links resolve by note basename or `title` frontmatter (there's no vault link index outside Obsidian).
 - **Visuals follow your VS Code theme** (via `--vscode-*` variables), so the map looks different from the Obsidian version by design.
-- **Current scope:** render + column headers + pan/zoom + click-to-open. The toolbar (search, filter chips, fullscreen, reset), collapse toggles, and the note dialog are Obsidian-only for now.
+- **Current scope:** render (map, gantt, or kanban per the block's `view:` key) + pan/zoom + click-to-open. The toolbar (search, filter chips, the view switcher, fullscreen, reset), collapse toggles, and the note dialog are Obsidian-only for now.
 
 ## Limits
 
 - `from:` is folder-only (no tag / Dataview queries yet).
-- Link resolution matches a wikilink, basename, or `title` — not an arbitrary shared field value (so a keyword like `stage: claims` won't auto-link unless a note of that basename/title exists).
+- Link resolution matches a wikilink, basename, `title`, or `id` — not an arbitrary shared field value (so a keyword like `stage: claims` won't auto-link unless a note of that basename/title/id exists).
 - Layout centring assumes primary edges connect adjacent levels.
+- Gantt: no dependency arrows and no date-range filtering yet (filters are discrete values).
 
 ## License
 
