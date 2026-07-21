@@ -163,6 +163,8 @@ function htmlShell(
   .mm-label-t { font-family: var(--vscode-font-family); font-weight: 600; text-anchor: middle; }
   .mm-track { fill: var(--vscode-widget-border); }
   .mm-barlbl { font: 700 9px var(--vscode-font-family); fill: var(--vscode-descriptionForeground); }
+  .mm-grid { stroke: var(--vscode-widget-border); stroke-width: 1; }
+  .mm-axis { font: 600 11px var(--vscode-font-family); fill: var(--vscode-descriptionForeground); }
 </style>
 </head>
 <body>

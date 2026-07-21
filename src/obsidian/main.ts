@@ -21,6 +21,7 @@ import {
   NoteLike,
   Resolver,
   SavedViewCfg,
+  ViewMode,
   collectNodes,
   buildEdges,
   isSecondary,
@@ -68,7 +69,7 @@ export default class NotesMindmapPlugin extends Plugin {
 // has two mindmap blocks. Persist to plugin data if either bites.
 const activeState = new Map<
   string,
-  { view: string; filters: Record<string, string[]> }
+  { view: string; filters: Record<string, string[]>; mode: ViewMode }
 >();
 
 function renderMindmap(
@@ -104,6 +105,7 @@ function renderMindmap(
   (cfg.filter || []).forEach((p) => (filters[p] = new Set()));
   let savedViews: SavedViewCfg[] = [...(cfg.views || [])];
   let selectedView = "";
+  let viewMode: ViewMode = cfg.view ?? "map";
   let searchTerm = "";
   let selected: string | null = null;
   let focused: string | null = null;
@@ -162,6 +164,37 @@ function renderMindmap(
   focusTicket.createSpan({ cls: "mm-focus-x", text: "✕" });
   focusTicket.onclick = () => setFocus(null);
 
+  // view-mode switcher (map / gantt / kanban), shown when an alt view is configured
+  const modeBtns: Partial<Record<ViewMode, HTMLButtonElement>> = {};
+  const availableModes: ViewMode[] = [
+    "map",
+    ...(cfg.gantt ? (["gantt"] as ViewMode[]) : []),
+    ...(cfg.kanban ? (["kanban"] as ViewMode[]) : []),
+  ];
+  if (availableModes.length > 1) {
+    const grp = toolbar.createDiv({ cls: "mm-fltgroup" });
+    grp.createSpan({ cls: "mm-fltlabel", text: "View" });
+    availableModes.forEach((m) => {
+      const chip = grp.createEl("button", { cls: "mm-chip", text: m });
+      modeBtns[m] = chip;
+      chip.onclick = () => {
+        if (viewMode === m) return;
+        viewMode = m;
+        selectedView = "";
+        syncModeButtons();
+        syncViewControls();
+        draw();
+        fit();
+      };
+    });
+  }
+  function syncModeButtons() {
+    (Object.keys(modeBtns) as ViewMode[]).forEach((m) =>
+      modeBtns[m]!.toggleClass("on", m === viewMode)
+    );
+  }
+  syncModeButtons();
+
   let viewSelect: HTMLSelectElement | null = null;
   let editViewBtn: HTMLButtonElement | null = null;
   let deleteViewBtn: HTMLButtonElement | null = null;
@@ -202,8 +235,13 @@ function renderMindmap(
     viewSelect.onchange = () => {
       selectedView = viewSelect?.value || "";
       const saved = savedViews.find((v) => v.name === selectedView);
-      if (saved) applyFilterSnapshot(saved.filters || {});
-      else syncViewControls();
+      if (saved) {
+        // a saved view pins filters + mode; views saved before the mode existed
+        // fall back to the block's default view
+        viewMode = saved.view ?? cfg.view ?? "map";
+        syncModeButtons();
+        applyFilterSnapshot(saved.filters || {});
+      } else syncViewControls();
       persistActiveView(selectedView).catch(reportViewError);
     };
     const saveView = views.createEl("button", {
@@ -227,6 +265,7 @@ function renderMindmap(
       const nextViews = upsertView(savedViews, {
         name: cleanName,
         filters: currentFilterSnapshot(),
+        view: viewMode,
       });
       try {
         await persistViews(nextViews);
@@ -254,7 +293,11 @@ function renderMindmap(
       }
       const nextViews = savedViews.map((v) =>
         v.name === current.name
-          ? { name: cleanName, filters: currentFilterSnapshot() }
+          ? {
+              name: cleanName,
+              filters: currentFilterSnapshot(),
+              view: viewMode,
+            }
           : v
       );
       try {
@@ -330,6 +373,7 @@ function renderMindmap(
     activeState.set(ctx.sourcePath, {
       view: selectedView,
       filters: currentFilterSnapshot(),
+      mode: viewMode,
     });
   }
 
@@ -453,6 +497,8 @@ function renderMindmap(
     search.value = "";
     titleOnly = false;
     titlesBtn.toggleClass("on", false);
+    viewMode = cfg.view ?? "map";
+    syncModeButtons();
     (cfg.filter || []).forEach((p) => filters[p].clear());
     updateFilterChips();
     syncViewControls();
@@ -604,6 +650,7 @@ function renderMindmap(
       ),
       focused,
       titleOnly,
+      view: viewMode,
     });
     contentBottom = model.contentBottom;
     contentRight = model.contentRight;
@@ -666,9 +713,13 @@ function renderMindmap(
   const startView = initialView(cfg);
   if (remembered) {
     selectedView = remembered.view;
+    viewMode = remembered.mode;
+    syncModeButtons();
     applyFilterSnapshot(remembered.filters); // restores chips + view dropdown + draws
   } else if (startView) {
     selectedView = startView.name;
+    viewMode = startView.view ?? cfg.view ?? "map";
+    syncModeButtons();
     applyFilterSnapshot(startView.filters || {});
   } else {
     draw();

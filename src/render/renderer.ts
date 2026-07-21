@@ -5,8 +5,8 @@
 // Like the adapters, this file is validated by build + manual check, not unit
 // tests (established split: pure logic is tested, rendering is not).
 
-import { AUTO_COLORS, CARD_METRICS, subWidth, wrap } from "../graph";
-import type { RNode, RenderModel } from "../graph";
+import { AUTO_COLORS, CARD_METRICS, GANTT, subWidth, wrap } from "../graph";
+import type { GanttModel, RNode, RenderModel } from "../graph";
 
 const NS = "http://www.w3.org/2000/svg";
 
@@ -51,13 +51,130 @@ export function renderModel(
   const M = CARD_METRICS;
   const titleOnly = model.titleOnly;
 
+  // wire the standard row/card interactions onto a drawn group
+  const interact = (g: SVGElement, id: string) => {
+    if (cb.onNodeEnter)
+      g.addEventListener("mouseenter", () => cb.onNodeEnter!(id));
+    if (cb.onNodeLeave)
+      g.addEventListener("mouseleave", () => cb.onNodeLeave!());
+    if (cb.onNodeClick)
+      g.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        cb.onNodeClick!(id);
+      });
+    nodeEls[id] = g;
+  };
+
+  // ---- gantt: axis + one row per node (label, bar/diamond) ----
+  function drawGantt(gm: GanttModel) {
+    const gridBottom = Math.max(gm.contentBottom, GANTT.top);
+    gm.ticks.forEach((t) => {
+      svgEl(
+        "line",
+        {
+          class: "mm-grid",
+          x1: t.x,
+          y1: gm.axisY + 6,
+          x2: t.x,
+          y2: gridBottom,
+        },
+        rootG
+      );
+      svgEl(
+        "text",
+        { class: "mm-axis", x: t.x + 4, y: gm.axisY },
+        rootG
+      ).textContent = t.label;
+    });
+    gm.rows.forEach((r) => {
+      const g = svgEl("g", { class: "mm-node" }, rootG);
+      const indent = 8 + r.indent * GANTT.indent;
+      const label =
+        wrap(
+          r.label,
+          gm.labelWidth - indent - 12,
+          CARD_METRICS.titleSize,
+          1
+        )[0] ?? "";
+      const txt = svgEl(
+        "text",
+        {
+          class: "mm-t1",
+          x: indent,
+          y: r.y + r.h / 2 + 4,
+          "font-size": CARD_METRICS.titleSize,
+        },
+        g
+      );
+      txt.textContent = label;
+      if (label.length < r.label.replace(/\s+/g, " ").trim().length)
+        svgEl("title", {}, g).textContent = r.label;
+      const cy = r.y + r.h / 2;
+      if (r.bar) {
+        const barY = r.y + (r.h - 14) / 2;
+        svgEl(
+          "rect",
+          {
+            x: r.bar.x,
+            y: barY,
+            width: Math.max(3, r.bar.w),
+            height: 14,
+            rx: 4,
+            fill: r.color,
+            "fill-opacity": 0.3,
+          },
+          g
+        );
+        if (r.bar.progressW != null)
+          svgEl(
+            "rect",
+            {
+              x: r.bar.x,
+              y: barY,
+              width: r.bar.progressW,
+              height: 14,
+              rx: 4,
+              fill: r.color,
+            },
+            g
+          );
+      } else if (r.milestone) {
+        const x = r.milestone.x;
+        svgEl(
+          "path",
+          {
+            class: "mm-milestone",
+            d: `M${x},${cy - 7} L${x + 7},${cy} L${x},${cy + 7} L${x - 7},${cy} Z`,
+            fill: r.color,
+          },
+          g
+        );
+      }
+      interact(g, r.id);
+    });
+  }
+
+  if (model.view === "gantt" && model.gantt) {
+    drawGantt(model.gantt);
+    return { nodeEls, links };
+  }
+
   const linkLayer = svgEl("g", {}, rootG),
     nodeLayer = svgEl("g", {}, rootG);
 
-  // column headers
+  // column headers (kanban ones carry a colour + card count)
   model.headers.forEach((h) => {
-    svgEl("text", { class: "mm-colhead", x: h.x, y: 36 }, rootG).textContent =
-      h.label;
+    const t = svgEl(
+      "text",
+      {
+        class: "mm-colhead",
+        x: h.x,
+        y: 36,
+        style: h.color ? `fill: ${h.color}` : undefined,
+      },
+      rootG
+    );
+    t.textContent = h.count != null ? `${h.label} (${h.count})` : h.label;
   });
 
   // edges (parent right-mid -> child left-mid); secondary links draw dashed + fainter
@@ -268,16 +385,7 @@ export function renderModel(
       });
     }
 
-    if (cb.onNodeEnter)
-      g.addEventListener("mouseenter", () => cb.onNodeEnter!(n.id));
-    if (cb.onNodeLeave)
-      g.addEventListener("mouseleave", () => cb.onNodeLeave!());
-    if (cb.onNodeClick)
-      g.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        cb.onNodeClick!(n.id);
-      });
-    nodeEls[n.id] = g;
+    interact(g, n.id);
   });
 
   return { nodeEls, links };
