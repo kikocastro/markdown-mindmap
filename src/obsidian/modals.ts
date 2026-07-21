@@ -143,7 +143,7 @@ filter: [status]
 - **filterLabels** — rename a filter group's heading
 - **layout** — override card/column sizing
 - **properties: true** — show all frontmatter in the note dialog
-- **views** — saved views: filters + view mode (managed by the toolbar)
+- **views** — saved views: filters + collapse + view mode (managed by the toolbar)
 
 ### Views
 Configuring \`gantt:\` or \`kanban:\` adds a **View** switcher to the toolbar; the same
@@ -178,7 +178,8 @@ Field values are frontmatter property names; dotted paths work everywhere (\`cus
 - **Search** — spotlight matching cards, dim the rest
 - **View switcher** — flip between map / gantt / kanban
 - **Filter chips** — multi-select per property (OR within, AND across)
-- **Saved views** — save / apply / edit / delete a filter + view-mode combination
+- **Saved views** — save / apply / edit / delete a filter + view-mode combination; each view also remembers which subtrees are collapsed
+- **Export** — save the current map next to the note as a standalone **HTML** file or an editable **Excalidraw** drawing
 - **Hover** a card — highlight its full up/down lineage
 - **Click** a card — dialog with its linked parents, siblings, and children (click to jump), properties, and the rendered note
 - **Focus** (from the dialog) — show a node, its ancestors, and primary descendants; persists until you click empty map space to clear
@@ -186,6 +187,48 @@ Field values are frontmatter property names; dotted paths work everywhere (\`cus
 - **+ / −** — collapse / expand a subtree
 - **⟨ / ☰** — collapse the toolbar to a single button, or expand it back
 - **⛶** fullscreen · **Reset** clears filters/search/collapse/focus · drag to pan, scroll to zoom
+
+## Causal maps (systems thinking)
+
+A \`\`\`causalmap\`\`\` block renders a **causal-loop diagram**: notes are causal
+variables, frontmatter \`affects:\` entries are signed edges, and feedback loops
+are **detected automatically** and classified reinforcing/balancing by sign
+parity (an even number of \`-\` edges reinforces).
+
+### Quick start
+~~~yaml
+title: Engineering system
+folders: [systems/nodes]
+loopFolders: [systems/loops]   # optional loop cards: labels per loop id
+where: { status: active }
+~~~
+
+### Each variable note
+~~~yaml
+id: untested-code-live         # optional, defaults to the file name
+label: Untested code live
+type: vice                     # driver | vice | capability | virtue (colours the border)
+status: active
+affects:
+  - to: incident               # id, note name, or [[wikilink]]
+    sign: "+"                  # "+" same direction (default), "-" opposite
+    loops: [R1]                # optional loop name tag(s)
+~~~
+
+### Keys
+- **folders** (required) — folders holding the variable notes
+- **loopFolders** — folders with loop cards (\`id\` + \`label\`) naming detected loops
+- **edgesField** / **labelField** / **typeField** — rename the frontmatter fields
+- **typeColors** — override the per-type colours
+- **where** — keep only matching notes, e.g. \`{ status: active }\`
+- **layout** — \`{ nodeWidth, spacing, iterations }\`
+- **title / height / properties** — as in mindmaps
+
+### Interactions
+- **Loop chips** — click a loop (● amber = reinforcing, ● teal = balancing) to spotlight its cycle
+- **Hover** a node — highlight everything it affects and is affected by
+- **Click** a node — note dialog; linked rows carry their edge sign (+ / −)
+- **Search / Reset / Fullscreen / Export HTML** — as in mindmaps
 
 [Full documentation on GitHub →](https://github.com/kikocastro/markdown-mindmap#readme)
 `;

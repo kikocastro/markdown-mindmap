@@ -17,3 +17,4 @@ export * from "./core/layout-gantt";
 export * from "./core/layout-kanban";
 export * from "./core/views";
 export * from "./core/render-model";
+export * from "./core/export";

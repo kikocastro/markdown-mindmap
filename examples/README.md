@@ -1,6 +1,6 @@
 # Examples
 
-Two self-contained maps. Each reads only the notes under its own folder.
+Three self-contained maps. Each reads only the notes under its own folder.
 
 ## `mindmap-demo`
 
@@ -9,6 +9,10 @@ Vision -> areas -> features -> tasks, wired by `area:` and `feature:` frontmatte
 ## `ost-demo`
 
 An Opportunity Solution Tree (outcome -> opportunities -> solutions -> experiments) for a streaming service. Same features as above plus interview-quote subtitles, discipline bars, and a saved view.
+
+## `causalmap-demo`
+
+A ` ```causalmap ` causal-loop diagram of a delivery team stuck in firefighting. Exercises node types/colours, signed edges (dashed `−`), three declared loops with loop cards (reinforcing + balancing), one auto-detected unnamed loop, a `where` filter hiding a dormant card, and id/wikilink edge resolution. Obsidian only.
 
 ## Running them
 

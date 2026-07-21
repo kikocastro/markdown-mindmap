@@ -111,6 +111,7 @@ export interface KanbanCfg {
 export interface SavedViewCfg {
   name: string;
   filters?: Record<string, string[]>;
+  collapsed?: string[]; // node ids (paths) whose primary subtree is contracted
   view?: ViewMode; // a saved view pins filters + view mode ("devops · gantt")
 }
 export interface MapCfg {

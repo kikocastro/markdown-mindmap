@@ -8,6 +8,7 @@ import {
   stringifyYaml,
 } from "obsidian";
 import { svgEl } from "./svg";
+import { renderCausalMap } from "./causal";
 import {
   LinkRow,
   HelpModal,
@@ -33,6 +34,9 @@ import {
   viewNameTaken,
   initialView,
   validateConfig,
+  mindmapExportPath,
+  mindmapExcalidrawPath,
+  mapToExcalidraw,
 } from "../graph";
 import { renderModel } from "../render/renderer";
 import { attachPanZoom } from "../render/panzoom";
@@ -58,6 +62,18 @@ export default class NotesMindmapPlugin extends Plugin {
           new HelpModal(this.app).open();
       }
     });
+    this.registerMarkdownCodeBlockProcessor("causalmap", (source, el, ctx) => {
+      try {
+        renderCausalMap(this.app, this, source, el, ctx);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : JSON.stringify(e);
+        el.createEl("pre", {
+          text: "Causal Map error:\n" + msg,
+        });
+        el.createEl("button", { text: "Help" }).onclick = () =>
+          new HelpModal(this.app).open();
+      }
+    });
   }
 }
 
@@ -69,7 +85,12 @@ export default class NotesMindmapPlugin extends Plugin {
 // has two mindmap blocks. Persist to plugin data if either bites.
 const activeState = new Map<
   string,
-  { view: string; filters: Record<string, string[]>; mode: ViewMode }
+  {
+    view: string;
+    filters: Record<string, string[]>;
+    collapsed: string[];
+    mode: ViewMode;
+  }
 >();
 
 function renderMindmap(
@@ -236,10 +257,11 @@ function renderMindmap(
       selectedView = viewSelect?.value || "";
       const saved = savedViews.find((v) => v.name === selectedView);
       if (saved) {
-        // a saved view pins filters + mode; views saved before the mode existed
-        // fall back to the block's default view
+        // a saved view pins filters + collapse + mode; views saved before the
+        // mode existed fall back to the block's default view
         viewMode = saved.view ?? cfg.view ?? "map";
         syncModeButtons();
+        applyCollapsed(saved.collapsed || []);
         applyFilterSnapshot(saved.filters || {});
       } else syncViewControls();
       persistActiveView(selectedView).catch(reportViewError);
@@ -262,11 +284,7 @@ function renderMindmap(
         !(await confirmModal(app, `Replace the saved view "${cleanName}"?`))
       )
         return;
-      const nextViews = upsertView(savedViews, {
-        name: cleanName,
-        filters: currentFilterSnapshot(),
-        view: viewMode,
-      });
+      const nextViews = upsertView(savedViews, currentViewCfg(cleanName));
       try {
         await persistViews(nextViews);
         selectedView = cleanName;
@@ -292,13 +310,7 @@ function renderMindmap(
         return;
       }
       const nextViews = savedViews.map((v) =>
-        v.name === current.name
-          ? {
-              name: cleanName,
-              filters: currentFilterSnapshot(),
-              view: viewMode,
-            }
-          : v
+        v.name === current.name ? currentViewCfg(cleanName) : v
       );
       try {
         await persistViews(nextViews);
@@ -329,9 +341,14 @@ function renderMindmap(
     syncViewControls();
   }
 
-  // footer: view-density + window utilities pinned to the bottom of the rail
+  // footer: utilities pinned to the bottom of the rail, grouped into labelled
+  // clusters (Display / Export / global row) so it reads with the same grammar
+  // as the filter groups above instead of a flat stack of mixed actions.
   const foot = toolbar.createDiv({ cls: "mm-foot" });
-  const titlesBtn = foot.createEl("button", {
+
+  const displayGroup = foot.createDiv({ cls: "mm-actiongroup" });
+  displayGroup.createSpan({ cls: "mm-fltlabel", text: "Display" });
+  const titlesBtn = displayGroup.createEl("button", {
     text: "Titles only",
     attr: { title: "Show only node titles" },
   });
@@ -340,15 +357,35 @@ function renderMindmap(
     titlesBtn.toggleClass("on", titleOnly);
     draw();
   };
-  const fsBtn = foot.createEl("button", {
+  const fsBtn = displayGroup.createEl("button", {
     text: "Fullscreen",
-    attr: { title: "Fullscreen" },
+    attr: { title: "Toggle fullscreen" },
   });
   fsBtn.onclick = () => {
     if (activeDocument.fullscreenElement) void activeDocument.exitFullscreen();
     else void wrapEl.requestFullscreen();
   };
+
+  const exportGroup = foot.createDiv({ cls: "mm-actiongroup" });
+  exportGroup.createSpan({ cls: "mm-fltlabel", text: "Export" });
+  const exportBtn = exportGroup.createEl("button", {
+    text: "HTML",
+    attr: { title: "Save this map as a standalone .html next to the note" },
+  });
+  exportBtn.onclick = exportHtml;
+  const exportExBtn = exportGroup.createEl("button", {
+    text: "Excalidraw",
+    attr: {
+      title: "Save this map as an editable .Excalidraw next to the note",
+    },
+  });
+  exportExBtn.onclick = exportExcalidraw;
+
+  // global utilities share one bottom row: Reset hugs the left, Help the right
+  const footUtil = foot.createDiv({ cls: "mm-utilrow" });
+
   plugin.registerDomEvent(activeDocument, "fullscreenchange", () => {
+    fsBtn.toggleClass("on", activeDocument.fullscreenElement === wrapEl);
     window.requestAnimationFrame(fit);
     // left fullscreen with a deferred persist queued -> flush it now
     if (activeDocument.fullscreenElement !== wrapEl && pendingWrite) {
@@ -369,10 +406,27 @@ function renderMindmap(
     return snapshot;
   }
 
+  // a saved view = current filters + which subtrees are contracted (collapse omitted when none)
+  function currentViewCfg(name: string): SavedViewCfg {
+    const view: SavedViewCfg = {
+      name,
+      filters: currentFilterSnapshot(),
+      view: viewMode,
+    };
+    if (collapsed.size) view.collapsed = [...collapsed];
+    return view;
+  }
+
+  function applyCollapsed(ids: string[]) {
+    collapsed.clear();
+    ids.forEach((id) => collapsed.add(id));
+  }
+
   function rememberActive() {
     activeState.set(ctx.sourcePath, {
       view: selectedView,
       filters: currentFilterSnapshot(),
+      collapsed: [...collapsed],
       mode: viewMode,
     });
   }
@@ -487,7 +541,7 @@ function renderMindmap(
     );
   }
 
-  const resetBtn = foot.createEl("button", { text: "Reset" });
+  const resetBtn = footUtil.createEl("button", { text: "Reset" });
   resetBtn.onclick = () => {
     collapsed.clear();
     selected = null;
@@ -508,7 +562,7 @@ function renderMindmap(
     if (cfg.activeView) persistActiveView("").catch(reportViewError);
   };
 
-  const helpBtn = foot.createEl("button", {
+  const helpBtn = footUtil.createEl("button", {
     cls: "mm-help",
     text: "Help",
     attr: { title: "Mindmap help" },
@@ -642,8 +696,9 @@ function renderMindmap(
   // ---- layout + draw (re-runnable, shared renderer) ----
   let contentBottom = 64,
     contentRight = 0;
-  function draw() {
-    const model = modelFromGraph(cfg, nodes, byLevel, edgeKind, {
+  // the transient UI state as the core's UiState shape (draw + exports share it)
+  function currentUi() {
+    return {
       collapsed: [...collapsed],
       filters: Object.fromEntries(
         Object.entries(filters).map(([prop, sel]) => [prop, [...sel]])
@@ -651,7 +706,11 @@ function renderMindmap(
       focused,
       titleOnly,
       view: viewMode,
-    });
+    };
+  }
+
+  function draw() {
+    const model = modelFromGraph(cfg, nodes, byLevel, edgeKind, currentUi());
     contentBottom = model.contentBottom;
     contentRight = model.contentRight;
 
@@ -696,10 +755,108 @@ function renderMindmap(
         ? 0
         : toolbar.offsetWidth + 16,
     listenWindow: (type, handler) =>
-      plugin.registerDomEvent(window, type, handler),
+      plugin.registerDomEvent(activeWindow, type, handler),
   });
   function fit() {
     panZoom.fit();
+  }
+
+  // Export the current map (full extent, current collapse/filter state) as a
+  // standalone .html next to the note. The view is already an SVG tree; we clone
+  // it, freeze each element's *computed* style inline (so the file renders without
+  // Obsidian's CSS vars / theme), and frame it with a transform-free viewBox.
+  // ponytail: copies whatever's painted now — an active search dim bakes in.
+  function exportHtml() {
+    const PAD = 24;
+    const PROPS = [
+      "fill",
+      "stroke",
+      "stroke-width",
+      "stroke-dasharray",
+      "opacity",
+      "font-family",
+      "font-size",
+      "font-weight",
+      "text-anchor",
+      "letter-spacing",
+      "filter",
+    ];
+    const box = (rootG as SVGGraphicsElement).getBBox();
+    const clone = svg.cloneNode(true) as SVGSVGElement;
+    const live = svg.querySelectorAll<SVGElement>("*");
+    const copies = clone.querySelectorAll<SVGElement>("*");
+    live.forEach((el, i) => {
+      const cs = getComputedStyle(el);
+      copies[i].setAttribute(
+        "style",
+        PROPS.map((p) => `${p}:${cs.getPropertyValue(p)}`).join(";")
+      );
+    });
+    clone.querySelector("g")?.removeAttribute("transform"); // drop pan/zoom
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    clone.setAttribute(
+      "viewBox",
+      `${box.x - PAD} ${box.y - PAD} ${box.width + PAD * 2} ${box.height + PAD * 2}`
+    );
+    clone.setAttribute("width", String(Math.ceil(box.width + PAD * 2)));
+    clone.setAttribute("height", String(Math.ceil(box.height + PAD * 2)));
+
+    const bg = getComputedStyle(wrapEl).backgroundColor || "#fff";
+    const esc = (s: string) =>
+      s.replace(/[<>&]/g, (c) =>
+        c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"
+      );
+    const html =
+      `<!doctype html><meta charset="utf-8"><title>${esc(cfg.title || "Mindmap")}</title>` +
+      `<body style="margin:0;background:${bg}">${clone.outerHTML}</body>`;
+
+    const path = mindmapExportPath(ctx.sourcePath);
+    void app.vault.adapter.write(path, html).then(
+      () => new Notice("Exported to " + path),
+      (e: unknown) =>
+        new Notice(
+          "Export failed: " + (e instanceof Error ? e.message : String(e))
+        )
+    );
+  }
+
+  // Export the current map as an editable .excalidraw (v2 JSON) next to the
+  // note. Always exports the tree (map) layout, whatever view is on screen:
+  // modelFromGraph re-lays the current collapse/filter/focus state out as a map
+  // and the pure builder in graph.ts does the element mapping.
+  // ponytail: copies the current collapse/filter/titles state, like Export HTML.
+  function exportExcalidraw() {
+    const model = modelFromGraph(cfg, nodes, byLevel, edgeKind, {
+      ...currentUi(),
+      view: "map",
+    });
+    const exIndex = new Map(model.nodes.map((n, i) => [n.id, i]));
+    const exNodes = model.nodes.map((n) => ({
+      x: n.x,
+      y: n.y,
+      w: n.w,
+      h: n.h,
+      color: n.color,
+      text: !titleOnly && n.sub ? n.title + "\n" + n.sub : n.title,
+    }));
+    const exEdges = model.edges.map((e) => ({
+      x1: e.x1,
+      y1: e.y1,
+      x2: e.x2,
+      y2: e.y2,
+      color: e.color,
+      source: exIndex.get(e.a),
+      target: exIndex.get(e.b),
+    }));
+    const json = JSON.stringify(mapToExcalidraw(exNodes, exEdges), null, 2);
+    const path = mindmapExcalidrawPath(ctx.sourcePath);
+    void app.vault.adapter.write(path, json).then(
+      () => new Notice("Exported to " + path),
+      (e: unknown) =>
+        new Notice(
+          "Export failed: " + (e instanceof Error ? e.message : String(e))
+        )
+    );
   }
   // background click clears only the sticky highlight; focus stays until its ticket ✕
   stage.addEventListener("click", () => {
@@ -715,11 +872,13 @@ function renderMindmap(
     selectedView = remembered.view;
     viewMode = remembered.mode;
     syncModeButtons();
+    applyCollapsed(remembered.collapsed);
     applyFilterSnapshot(remembered.filters); // restores chips + view dropdown + draws
   } else if (startView) {
     selectedView = startView.name;
     viewMode = startView.view ?? cfg.view ?? "map";
     syncModeButtons();
+    applyCollapsed(startView.collapsed || []);
     applyFilterSnapshot(startView.filters || {});
   } else {
     draw();
