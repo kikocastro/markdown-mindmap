@@ -3,7 +3,16 @@ import {
   mindmapExportPath,
   mindmapExcalidrawPath,
   mapToExcalidraw,
+  modelToExcalidraw,
+  buildRenderModel,
 } from "../src/graph";
+import {
+  simpleCfg,
+  simpleNotes,
+  taskCfg,
+  taskNotes,
+  resolverFor,
+} from "./fixtures";
 
 describe("mindmapExportPath", () => {
   it("puts the .html next to the note, dropping the .md", () => {
@@ -105,6 +114,131 @@ describe("mapToExcalidraw", () => {
     expect(rects[1].boundElements).toContainEqual({
       type: "arrow",
       id: arrow.id,
+    });
+  });
+});
+
+describe("modelToExcalidraw", () => {
+  describe("map view", () => {
+    const model = buildRenderModel(
+      simpleCfg,
+      simpleNotes,
+      resolverFor(simpleNotes),
+      { view: "map" }
+    );
+
+    it("emits one node per map node and one edge per map edge", () => {
+      const { nodes, edges } = modelToExcalidraw(model);
+      expect(nodes).toHaveLength(model.nodes.length);
+      expect(edges).toHaveLength(model.edges.length);
+      expect(edges.length).toBeGreaterThan(0);
+    });
+
+    it("carries node geometry and colour through unchanged", () => {
+      const { nodes } = modelToExcalidraw(model);
+      const first = model.nodes[0];
+      expect(nodes[0]).toMatchObject({
+        x: first.x,
+        y: first.y,
+        w: first.w,
+        h: first.h,
+        color: first.color,
+      });
+    });
+
+    it("appends the sub line to the title when present", () => {
+      const { nodes } = modelToExcalidraw(model);
+      const goal = nodes.find((n) => n.text.startsWith("Goal A"))!;
+      expect(goal.text).toBe("Goal A\nnorth star");
+      // a node without a sub stays a single line
+      const proj = nodes.find((n) => n.text === "Proj 1");
+      expect(proj).toBeTruthy();
+    });
+
+    it("drops the sub line when titles are collapsed", () => {
+      const collapsedTitles = buildRenderModel(
+        simpleCfg,
+        simpleNotes,
+        resolverFor(simpleNotes),
+        { view: "map", titleOnly: true }
+      );
+      const { nodes } = modelToExcalidraw(collapsedTitles);
+      expect(nodes.find((n) => n.text === "Goal A")).toBeTruthy();
+      expect(nodes.some((n) => n.text.includes("\n"))).toBe(false);
+    });
+
+    it("binds each edge to its source/target node indices", () => {
+      const { nodes, edges } = modelToExcalidraw(model);
+      const e = edges[0];
+      expect(e.source).toBeTypeOf("number");
+      expect(e.target).toBeTypeOf("number");
+      expect(nodes[e.source!]).toBeTruthy();
+      expect(nodes[e.target!]).toBeTruthy();
+    });
+  });
+
+  describe("gantt view", () => {
+    const model = buildRenderModel(taskCfg, taskNotes, resolverFor(taskNotes), {
+      view: "gantt",
+    });
+
+    it("emits one node per gantt row and no edges", () => {
+      const { nodes, edges } = modelToExcalidraw(model);
+      expect(nodes).toHaveLength(model.gantt!.rows.length);
+      expect(edges).toEqual([]);
+    });
+
+    it("positions a bar row at its bar geometry", () => {
+      const { nodes } = modelToExcalidraw(model);
+      const row = model.gantt!.rows.find((r) => r.bar)!;
+      const node = nodes.find((n) => n.text === row.label)!;
+      expect(node.x).toBe(row.bar!.x);
+      expect(node.y).toBe(row.y);
+      expect(node.w).toBe(Math.max(row.bar!.w, 8));
+      expect(node.color).toBe(row.color);
+    });
+
+    it("emits a small centred square for a milestone row", () => {
+      const { nodes } = modelToExcalidraw(model);
+      const kickoff = nodes.find((n) => n.text === "Kickoff")!;
+      const row = model.gantt!.rows.find((r) => r.label === "Kickoff")!;
+      expect(row.milestone).toBeTruthy();
+      expect(kickoff.w).toBe(14);
+      expect(kickoff.h).toBe(14);
+      expect(kickoff.x).toBe(row.milestone!.x - 7);
+    });
+
+    it("parks a dateless row in the left label column", () => {
+      const { nodes } = modelToExcalidraw(model);
+      const someday = nodes.find((n) => n.text === "Someday")!;
+      expect(someday.x).toBe(0);
+      expect(someday.w).toBe(model.gantt!.labelWidth);
+    });
+  });
+
+  describe("kanban view", () => {
+    const model = buildRenderModel(taskCfg, taskNotes, resolverFor(taskNotes), {
+      view: "kanban",
+    });
+
+    it("emits one node per card and no edges", () => {
+      const { nodes, edges } = modelToExcalidraw(model);
+      expect(nodes).toHaveLength(model.nodes.length);
+      expect(nodes.length).toBeGreaterThan(0);
+      expect(edges).toEqual([]);
+    });
+
+    it("carries each card's geometry, colour and title", () => {
+      const { nodes } = modelToExcalidraw(model);
+      const card = model.nodes[0];
+      expect(nodes[0]).toMatchObject({
+        x: card.x,
+        y: card.y,
+        w: card.w,
+        h: card.h,
+        color: card.color,
+      });
+      expect(nodes[0].text).toContain(card.title);
     });
   });
 });

@@ -208,15 +208,17 @@ filter: [status, tags]
 
 **`gantt`** — field names are frontmatter properties, like everything else:
 
-| Key         | Type                           | Meaning                                                                                                    |
-| ----------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `start`     | field                          | Start date (ISO, e.g. `2026-06-09`). **Required.**                                                         |
-| `end`       | field                          | End/due date. **Required.**                                                                                |
-| `progress`  | field (0–100)                  | Bar fill. Defaults to the card's `progress` field.                                                         |
-| `scale`     | `week` \| `month` \| `quarter` | Axis tick unit (default `month`).                                                                          |
-| `groupRows` | bool                           | Default `true`: rows follow the tree order with subtasks indented under parents. `false`: flat path order. |
+| Key           | Type                                     | Meaning                                                                                                                                                  |
+| ------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `start`       | field                                    | Start date (ISO, e.g. `2026-06-09`). **Required.**                                                                                                       |
+| `end`         | field                                    | End/due date. **Required.**                                                                                                                              |
+| `progress`    | field (0–100)                            | Bar fill. Defaults to the card's `progress` field.                                                                                                       |
+| `scale`       | `week` \| `month` \| `quarter` \| `year` | Axis tick unit (default `month`). Also switchable from the toolbar's Scale chips.                                                                        |
+| `density`     | `compact` \| `comfortable`               | Default `compact`. `comfortable` scales up rows and fonts for reading from a distance (presentations). Also switchable from the toolbar's Density chips. |
+| `sortByStart` | bool                                     | Default `true`: rows sort by crescent start date (dateless last). `false` restores the raw tree/path order.                                              |
+| `groupRows`   | bool                                     | Default `true`: rows follow the tree order with subtasks indented under parents. `false`: flat path order.                                               |
 
-Rows render as bars from `start` to `end` with a progress fill. A task whose `start` equals its `end` (or that has only one of the two) renders as a **milestone diamond**. Tasks with neither date get a plain row. Click a row to open the note.
+Rows render as bars from `start` to `end` with a progress fill. A task whose `start` equals its `end` (or that has only one of the two) renders as a **milestone diamond**. Tasks with neither date get a plain row. Click a row to open the note. The card's `labels` render as pills right of the bar (or at the axis origin for dateless rows). Nested items can be contracted/expanded with a per-row toggle — the same collapse state as the map view, so saved views' collapsed lists apply here too. The toolbar's **show subtasks** chip (under **Rows**) expands/contracts every parent row at once; it's off by default, so the gantt opens with nested rows hidden.
 
 **`kanban`**
 

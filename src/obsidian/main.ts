@@ -23,6 +23,8 @@ import {
   Resolver,
   SavedViewCfg,
   ViewMode,
+  GanttScale,
+  GanttDensity,
   collectNodes,
   buildEdges,
   isSecondary,
@@ -37,6 +39,7 @@ import {
   mindmapExportPath,
   mindmapExcalidrawPath,
   mapToExcalidraw,
+  modelToExcalidraw,
 } from "../graph";
 import { renderModel } from "../render/renderer";
 import { attachPanZoom } from "../render/panzoom";
@@ -127,6 +130,9 @@ function renderMindmap(
   let savedViews: SavedViewCfg[] = [...(cfg.views || [])];
   let selectedView = "";
   let viewMode: ViewMode = cfg.view ?? "map";
+  // ponytail: not persisted into saved views yet
+  let ganttScale: GanttScale = cfg.gantt?.scale ?? "month";
+  let ganttDensity: GanttDensity = cfg.gantt?.density ?? "compact";
   let searchTerm = "";
   let selected: string | null = null;
   let focused: string | null = null;
@@ -186,6 +192,8 @@ function renderMindmap(
   focusTicket.onclick = () => setFocus(null);
 
   // view-mode switcher (map / gantt / kanban), shown when an alt view is configured
+  // declared early (null) so syncModeButtons can reference it before the button is created
+  let titlesBtnEl: HTMLButtonElement | null = null;
   const modeBtns: Partial<Record<ViewMode, HTMLButtonElement>> = {};
   const availableModes: ViewMode[] = [
     "map",
@@ -204,6 +212,8 @@ function renderMindmap(
         selectedView = "";
         syncModeButtons();
         syncViewControls();
+        // entering the gantt with "show subtasks" off starts contracted
+        if (m === "gantt" && !ganttShowSubs) applySubs();
         draw();
         fit();
       };
@@ -213,8 +223,89 @@ function renderMindmap(
     (Object.keys(modeBtns) as ViewMode[]).forEach((m) =>
       modeBtns[m]!.toggleClass("on", m === viewMode)
     );
+    // "Titles only" has no effect in gantt (no cards); hide it there, show elsewhere
+    titlesBtnEl?.toggleClass("mm-hidden", viewMode === "gantt");
   }
   syncModeButtons();
+
+  // gantt scale switcher (week / month / quarter / year), only for gantt blocks
+  const scaleBtns: Partial<Record<GanttScale, HTMLButtonElement>> = {};
+  if (cfg.gantt) {
+    const grp = toolbar.createDiv({ cls: "mm-fltgroup" });
+    grp.createSpan({ cls: "mm-fltlabel", text: "Scale" });
+    (["week", "month", "quarter", "year"] as GanttScale[]).forEach((s) => {
+      const chip = grp.createEl("button", { cls: "mm-chip", text: s });
+      scaleBtns[s] = chip;
+      chip.onclick = () => {
+        if (ganttScale === s) return;
+        ganttScale = s;
+        syncScaleButtons();
+        draw();
+        fit();
+      };
+    });
+  }
+  function syncScaleButtons() {
+    (Object.keys(scaleBtns) as GanttScale[]).forEach((s) =>
+      scaleBtns[s]!.toggleClass("on", s === ganttScale)
+    );
+  }
+  syncScaleButtons();
+
+  // gantt density switcher: comfortable = bigger rows/fonts for presentations
+  const densityBtns: Partial<Record<GanttDensity, HTMLButtonElement>> = {};
+  if (cfg.gantt) {
+    const grp = toolbar.createDiv({ cls: "mm-fltgroup" });
+    grp.createSpan({ cls: "mm-fltlabel", text: "Density" });
+    (["compact", "comfortable"] as GanttDensity[]).forEach((d) => {
+      const chip = grp.createEl("button", { cls: "mm-chip", text: d });
+      densityBtns[d] = chip;
+      chip.onclick = () => {
+        if (ganttDensity === d) return;
+        ganttDensity = d;
+        syncDensityButtons();
+        draw();
+        fit();
+      };
+    });
+  }
+  function syncDensityButtons() {
+    (Object.keys(densityBtns) as GanttDensity[]).forEach((d) =>
+      densityBtns[d]!.toggleClass("on", d === ganttDensity)
+    );
+  }
+  syncDensityButtons();
+
+  // "show subtasks" chip (own "Rows" section, not part of Scale): on by
+  // default = nested rows shown; off = all parents contracted. Reuses the
+  // collapse machinery, so it composes with saved views. ponytail: turning it
+  // on expands all parents, even ones the user had contracted by hand.
+  let ganttShowSubs = true;
+  let subsChip: HTMLButtonElement | null = null;
+  const applySubs = () => {
+    Object.values(nodes).forEach((n) => {
+      if (n.children.size === 0) return;
+      if (ganttShowSubs) collapsed.delete(n.id);
+      else collapsed.add(n.id);
+    });
+  };
+  if (cfg.gantt) {
+    const grp = toolbar.createDiv({ cls: "mm-fltgroup" });
+    grp.createSpan({ cls: "mm-fltlabel", text: "Rows" });
+    subsChip = grp.createEl("button", {
+      cls: "mm-chip",
+      text: "show subtasks",
+      attr: { title: "Show/hide nested items (contracts every parent row)" },
+    });
+    subsChip.toggleClass("on", ganttShowSubs);
+    subsChip.onclick = () => {
+      ganttShowSubs = !ganttShowSubs;
+      subsChip!.toggleClass("on", ganttShowSubs);
+      applySubs();
+      draw();
+      fit();
+    };
+  }
 
   let viewSelect: HTMLSelectElement | null = null;
   let editViewBtn: HTMLButtonElement | null = null;
@@ -352,6 +443,9 @@ function renderMindmap(
     text: "Titles only",
     attr: { title: "Show only node titles" },
   });
+  titlesBtnEl = titlesBtn;
+  // set initial visibility: hidden when the block opens straight into the gantt view
+  titlesBtn.toggleClass("mm-hidden", viewMode === "gantt");
   titlesBtn.onclick = () => {
     titleOnly = !titleOnly;
     titlesBtn.toggleClass("on", titleOnly);
@@ -706,6 +800,9 @@ function renderMindmap(
       focused,
       titleOnly,
       view: viewMode,
+      ganttScale,
+      ganttDensity,
+      today: Math.floor(Date.now() / 86400000),
     };
   }
 
@@ -734,6 +831,16 @@ function renderMindmap(
       (dnAdj[e.a] = dnAdj[e.a] || new Set()).add(e.b);
       (upAdj[e.b] = upAdj[e.b] || new Set()).add(e.a);
     });
+    // gantt/kanban have no edges; build adjacency from the primary parent tree so
+    // hover-highlight walks ancestors + descendants just like the map view does.
+    if (viewMode !== "map") {
+      Object.values(nodes).forEach((n) => {
+        if (!n.primaryParent) return;
+        const p = n.primaryParent;
+        (dnAdj[p] = dnAdj[p] || new Set()).add(n.id);
+        (upAdj[n.id] = upAdj[n.id] || new Set()).add(p);
+      });
+    }
 
     panZoom.apply();
     reapply();
@@ -820,34 +927,15 @@ function renderMindmap(
     );
   }
 
-  // Export the current map as an editable .excalidraw (v2 JSON) next to the
-  // note. Always exports the tree (map) layout, whatever view is on screen:
-  // modelFromGraph re-lays the current collapse/filter/focus state out as a map
-  // and the pure builder in graph.ts does the element mapping.
+  // Export the CURRENT view as an editable .excalidraw (v2 JSON) next to the
+  // note: currentUi() carries the on-screen view (map / gantt / kanban) plus the
+  // live collapse/filter/focus state, so the export mirrors what's showing.
+  // modelToExcalidraw dispatches on the model's view; mapToExcalidraw wraps the
+  // resulting geometry into the file.
   // ponytail: copies the current collapse/filter/titles state, like Export HTML.
   function exportExcalidraw() {
-    const model = modelFromGraph(cfg, nodes, byLevel, edgeKind, {
-      ...currentUi(),
-      view: "map",
-    });
-    const exIndex = new Map(model.nodes.map((n, i) => [n.id, i]));
-    const exNodes = model.nodes.map((n) => ({
-      x: n.x,
-      y: n.y,
-      w: n.w,
-      h: n.h,
-      color: n.color,
-      text: !titleOnly && n.sub ? n.title + "\n" + n.sub : n.title,
-    }));
-    const exEdges = model.edges.map((e) => ({
-      x1: e.x1,
-      y1: e.y1,
-      x2: e.x2,
-      y2: e.y2,
-      color: e.color,
-      source: exIndex.get(e.a),
-      target: exIndex.get(e.b),
-    }));
+    const model = modelFromGraph(cfg, nodes, byLevel, edgeKind, currentUi());
+    const { nodes: exNodes, edges: exEdges } = modelToExcalidraw(model);
     const json = JSON.stringify(mapToExcalidraw(exNodes, exEdges), null, 2);
     const path = mindmapExcalidrawPath(ctx.sourcePath);
     void app.vault.adapter.write(path, json).then(

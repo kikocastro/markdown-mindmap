@@ -191,6 +191,156 @@ describe("computeVisible — filters", () => {
   });
 });
 
+describe("computeVisible — filterKeepsHierarchy", () => {
+  // pm-task-shaped: parent carries the tag, subtasks carry their own (or none)
+  const hierCfg: MapCfg = {
+    levels: [
+      {
+        id: "top",
+        from: "tasks",
+        where: { parentId: null },
+        card: { title: "title" },
+      },
+      { id: "sub", from: "tasks", card: { title: "title" } },
+    ],
+    edges: [{ from: "top", to: "sub", via: "parentId" }],
+    filter: ["tags"],
+    filterKeepsHierarchy: true,
+  };
+  const hierNotes = [
+    mk("tasks/rearch.md", {
+      id: "p-rearch",
+      title: "Front end rearchitecture",
+      parentId: "",
+      tags: ["product"],
+    }),
+    mk("tasks/rearch-a11y.md", {
+      id: "t-a11y",
+      title: "A11y pass",
+      parentId: "p-rearch",
+      tags: ["frontend"],
+    }),
+    mk("tasks/rearch-tokens.md", {
+      id: "t-tokens",
+      title: "Design tokens",
+      parentId: "p-rearch",
+    }),
+    mk("tasks/dns.md", {
+      id: "t-dns",
+      title: "DNS cutover",
+      parentId: "",
+      tags: ["devops"],
+    }),
+  ];
+  const build = () => {
+    const { nodes, byLevel } = collectNodes(hierCfg, hierNotes);
+    buildEdges(hierCfg, nodes, byLevel, resolverFor(hierNotes));
+    return nodes;
+  };
+
+  it("a matching parent keeps its subtasks even when they don't match", () => {
+    const vis = computeVisible(
+      build(),
+      new Set(),
+      { tags: new Set(["product"]) },
+      hierCfg
+    );
+    expect(vis.has("tasks/rearch.md")).toBe(true);
+    expect(vis.has("tasks/rearch-a11y.md")).toBe(true); // wrong tag, kept
+    expect(vis.has("tasks/rearch-tokens.md")).toBe(true); // no tag, kept
+    expect(vis.has("tasks/dns.md")).toBe(false);
+  });
+
+  it("a matching child keeps its non-matching parent as context", () => {
+    const vis = computeVisible(
+      build(),
+      new Set(),
+      { tags: new Set(["frontend"]) },
+      hierCfg
+    );
+    expect(vis.has("tasks/rearch-a11y.md")).toBe(true);
+    expect(vis.has("tasks/rearch.md")).toBe(true); // context, not a match
+    expect(vis.has("tasks/rearch-tokens.md")).toBe(true); // no tags: unconstrained
+    expect(vis.has("tasks/dns.md")).toBe(false);
+  });
+
+  it("collapse still hides the subtree under hierarchy-aware filters", () => {
+    const vis = computeVisible(
+      build(),
+      new Set(["tasks/rearch.md"]),
+      { tags: new Set(["product"]) },
+      hierCfg
+    );
+    expect(vis.has("tasks/rearch.md")).toBe(true);
+    expect(vis.has("tasks/rearch-a11y.md")).toBe(false);
+    expect(vis.has("tasks/rearch-tokens.md")).toBe(false);
+  });
+
+  it("tolerates empty selections, a missing filter list, and stale collapse ids", () => {
+    const nodes = build();
+    // selection present but no values -> every node positively matches
+    const all = computeVisible(nodes, new Set(), { tags: new Set() }, hierCfg);
+    expect(all.size).toBe(Object.keys(nodes).length);
+    // no `filter` in the cfg at all -> nothing is constrained
+    const noFilter: MapCfg = {
+      levels: [{ id: "t", from: "tasks", card: { title: "title" } }],
+      filterKeepsHierarchy: true,
+    };
+    const flat = collectNodes(noFilter, hierNotes);
+    const vis = computeVisible(
+      flat.nodes,
+      new Set(["tasks/ghost.md"]), // stale collapse id: ignored
+      { tags: new Set(["product"]) },
+      noFilter
+    );
+    expect(vis.size).toBe(Object.keys(flat.nodes).length);
+  });
+
+  it("survives a primary-parent cycle under collapse", () => {
+    const cycCfg: MapCfg = {
+      levels: [
+        { id: "a", from: "a", card: { title: "title" } },
+        { id: "b", from: "b", card: { title: "title" } },
+      ],
+      edges: [
+        { from: "a", to: "b", via: "up" },
+        { from: "b", to: "a", via: "down" },
+      ],
+      filterKeepsHierarchy: true,
+    };
+    const notes = [
+      mk("a/A.md", { title: "A", down: "B" }),
+      mk("b/B.md", { title: "B", up: "A" }),
+    ];
+    const { nodes, byLevel } = collectNodes(cycCfg, notes);
+    buildEdges(cycCfg, nodes, byLevel, resolverFor(notes));
+    const vis = computeVisible(
+      nodes,
+      new Set(["a/A.md", "b/B.md"]),
+      {},
+      cycCfg
+    );
+    // in a 2-cycle each node sits in the other's subtree: collapsing both
+    // hides both, and the walk terminates instead of looping
+    expect(vis.size).toBe(0);
+  });
+
+  it("without the flag the strict behaviour is unchanged", () => {
+    const strict: MapCfg = { ...hierCfg, filterKeepsHierarchy: false };
+    const { nodes, byLevel } = collectNodes(strict, hierNotes);
+    buildEdges(strict, nodes, byLevel, resolverFor(hierNotes));
+    const vis = computeVisible(
+      nodes,
+      new Set(),
+      { tags: new Set(["product"]) },
+      strict
+    );
+    expect(vis.has("tasks/rearch.md")).toBe(true);
+    expect(vis.has("tasks/rearch-a11y.md")).toBe(false);
+    expect(vis.has("tasks/dns.md")).toBe(false);
+  });
+});
+
 describe("passesFilters — unit", () => {
   const cfg: MapCfg = {
     levels: [{ id: "x", from: "x" }],

@@ -245,6 +245,10 @@
 .mm-toolbar .mm-focus-ticket.mm-hidden {
   display: none;
 }
+/* generic hide toggle (e.g. the "Titles only" button in gantt view) */
+.mm-hidden {
+  display: none;
+}
 .mm-focus-label {
   flex: 1 1 auto;
   min-width: 0;
@@ -366,6 +370,18 @@
   stroke: var(--background-modifier-border);
   stroke-width: 1;
 }
+/* firmer divider at the next-larger period boundary (year in quarter view,
+   quarter in month view, month in week view). Firmer, not loud. */
+.mm-grid-major {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  stroke-opacity: 0.55;
+}
+/* tags trailing the gantt row title: quieter + smaller than the title */
+.mm-gantt-sub {
+  fill: var(--text-faint);
+  font-size: 0.82em;
+}
 .mm-axis {
   fill: var(--text-muted);
   font-size: 11px;
@@ -400,6 +416,38 @@
 }
 .mm-toggle.mm-collapsed text {
   fill: var(--text-on-accent);
+}
+/* gantt row toggles stay muted even when contracted — the accent fill reads
+   too strong next to dense chart rows */
+.mm-toggle.mm-gantt-toggle.mm-collapsed circle {
+  fill: var(--background-secondary);
+  stroke: var(--text-muted);
+}
+.mm-toggle.mm-gantt-toggle.mm-collapsed text {
+  fill: var(--text-muted);
+}
+.mm-toggle.mm-gantt-toggle:hover circle {
+  fill: var(--mm-hover);
+  stroke: var(--text-normal);
+}
+
+/* card title overlaid on the gantt bar: white, never intercepts clicks */
+.mm-gantt-bartitle {
+  fill: #fff;
+  font-weight: 600;
+  pointer-events: none;
+}
+/* vertical "today" marker, like a roadmap's now-line */
+.mm-today {
+  stroke: var(--color-red, #e74c3c);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+.mm-today-label {
+  fill: var(--color-red, #e74c3c);
+  font-size: 9px;
+  pointer-events: none;
 }
 
 /* ---- causal map (```causalmap) ---- */
