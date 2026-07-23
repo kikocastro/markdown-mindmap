@@ -93,12 +93,19 @@ export type ViewMode = "map" | "gantt" | "kanban";
 
 // gantt view: field names for the date range + bar fill, all configurable like
 // every card field. Milestone = start == end, or one of the two missing.
+export type GanttScale = "week" | "month" | "quarter" | "year";
+// comfortable = bigger rows/fonts for reading from a distance (presentations)
+export type GanttDensity = "compact" | "comfortable";
 export interface GanttCfg {
   start: string; // frontmatter field with the start date (ISO)
   end: string; // frontmatter field with the end/due date (ISO)
   progress?: string; // 0-100 field for the bar fill (defaults to card progress)
-  scale?: "week" | "month" | "quarter"; // axis tick unit (default month)
+  status?: string; // frontmatter field driving the status colour (default "status")
+  scale?: GanttScale; // axis tick unit (default month)
+  density?: GanttDensity; // default compact; comfortable = larger for presentations
   groupRows?: boolean; // default true: DFS tree order + indent; false: flat path order
+  sortByStart?: boolean; // default true: rows sorted by crescent start date (dateless last)
+  showLabels?: boolean; // default true: render card.labels pills in the left label column
 }
 
 // kanban view: group visible nodes into columns by a frontmatter field
@@ -121,6 +128,10 @@ export interface MapCfg {
   levels: LevelCfg[];
   edges?: EdgeCfg[];
   filter?: string[];
+  // when true, filters keep hierarchy context: a matching node's subtasks and
+  // ancestors stay visible even if they don't match themselves (default false:
+  // strict — a filtered-out node hides itself + its primary subtree)
+  filterKeepsHierarchy?: boolean;
   filterLabels?: Record<string, string>; // property -> display name for its filter group
   layout?: LayoutCfg;
   gantt?: GanttCfg;

@@ -9,6 +9,8 @@ import {
   NoteLike,
   Resolver,
   ViewMode,
+  GanttScale,
+  GanttDensity,
   resolveLayout,
   validateConfig,
 } from "./config";
@@ -26,6 +28,9 @@ export interface UiState {
   focused?: string | null;
   titleOnly?: boolean;
   view?: ViewMode; // toolbar override of cfg.view
+  ganttScale?: GanttScale; // toolbar override of cfg.gantt.scale
+  ganttDensity?: GanttDensity; // toolbar override of cfg.gantt.density
+  today?: number; // UTC day number for the gantt "today" marker (adapter supplies live value)
 }
 
 export interface RNode {
@@ -146,7 +151,12 @@ export function modelFromGraph(
   // filters/collapse/focus applied above, BEFORE any layout, so chips, saved
   // views, and search behave identically in all three views.
   if (view === "gantt") {
-    const gantt = layoutGantt(cfg, nodes, byLevel, vis);
+    const gantt = layoutGantt(cfg, nodes, byLevel, vis, {
+      collapsed,
+      scale: ui.ganttScale,
+      density: ui.ganttDensity,
+      today: ui.today,
+    });
     return {
       ...base,
       nodes: [],

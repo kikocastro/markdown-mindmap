@@ -24,6 +24,8 @@ export function computeVisible(
   filters: Record<string, Set<string>>,
   cfg: MapCfg
 ): Set<string> {
+  if (cfg.filterKeepsHierarchy)
+    return hierarchyVisible(nodes, collapsed, filters, cfg);
   const excluded = new Set<string>();
   Object.values(nodes).forEach((n) => {
     if (!passesFilters(n, filters, cfg)) excluded.add(n.id);
@@ -45,6 +47,66 @@ export function computeVisible(
     if (!hidden.has(n.id)) vis.add(n.id);
   });
   return vis;
+}
+
+// hierarchy-aware filtering: a node is kept when it passes the filters, when a
+// primary ancestor positively matches (subtasks ride along), or when a primary
+// descendant positively matches (ancestors stay as context). "Positive" means
+// the node actually HAS the selected property with a selected value — a node
+// merely lacking the property is unconstrained but never anchors context.
+// Collapse still hides the subtree under a contracted node.
+function hierarchyVisible(
+  nodes: Record<string, MNode>,
+  collapsed: Set<string>,
+  filters: Record<string, Set<string>>,
+  cfg: MapCfg
+): Set<string> {
+  const positivelyMatches = (n: MNode): boolean =>
+    (cfg.filter || []).every((p) => {
+      const sel = filters[p];
+      if (!sel || !sel.size) return true;
+      return fieldArr(n.fm, p).some((v) => sel.has(v));
+    });
+
+  const kept = new Set<string>();
+  const anchors: string[] = [];
+  Object.values(nodes).forEach((n) => {
+    if (passesFilters(n, filters, cfg)) kept.add(n.id);
+    if (positivelyMatches(n)) anchors.push(n.id);
+  });
+  anchors.forEach((id) => {
+    // upward: ancestors as context (cycle-guarded)
+    const seen = new Set<string>();
+    let cur = nodes[id].primaryParent;
+    while (cur && nodes[cur] && !seen.has(cur)) {
+      seen.add(cur);
+      kept.add(cur);
+      cur = nodes[cur].primaryParent;
+    }
+    // downward: the whole primary subtree rides along
+    const stack = [...primKids(nodes, id)];
+    while (stack.length) {
+      const x = stack.pop()!;
+      if (kept.has(x)) continue;
+      kept.add(x);
+      stack.push(...primKids(nodes, x));
+    }
+  });
+
+  // collapse applies last: contracted nodes keep self, hide their subtree
+  const hidden = new Set<string>();
+  collapsed.forEach((rid) => {
+    if (!nodes[rid]) return;
+    const stack = [...primKids(nodes, rid)];
+    while (stack.length) {
+      const x = stack.pop()!;
+      if (!hidden.has(x)) {
+        hidden.add(x);
+        stack.push(...primKids(nodes, x));
+      }
+    }
+  });
+  return new Set([...kept].filter((id) => !hidden.has(id)));
 }
 
 // Focus is a pure tree filter over primary layout links. Null, empty, or stale

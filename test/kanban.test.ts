@@ -155,3 +155,162 @@ describe("buildRenderModel — kanban view", () => {
     expect(m.headers.map((h) => h.label)).toEqual(["done"]);
   });
 });
+
+// ---- two-level same-folder setup (mirrors the user's real roadmap vault) ----
+// Level 0: top-level tasks (where parentId == null), each has a status.
+// Level 1: subtasks (same folder, no where), mostly have NO status field.
+// Kanban groupBy: "status" must produce one column per distinct status value
+// PLUS a trailing "(none)" for statusless subtasks — all at distinct x positions.
+describe("buildRenderModel — kanban two-level same-folder", () => {
+  // Build a minimal but realistic replica: 3 parents (todo/in-progress/done) + 3 subtasks (no status).
+  const folder = "roadmap";
+  const sameFolder: import("../src/graph").NoteLike[] = [
+    // top-level tasks — have a status field (some "quoted" in the source YAML,
+    // but Obsidian's YAML parser strips quotes before we see the value)
+    mk(`${folder}/task-todo-1.md`, {
+      id: "t1",
+      title: "Todo task 1",
+      parentId: "",
+      status: "todo",
+    }),
+    mk(`${folder}/task-todo-2.md`, {
+      id: "t2",
+      title: "Todo task 2",
+      parentId: "",
+      status: "todo",
+    }),
+    mk(`${folder}/task-wip.md`, {
+      id: "t3",
+      title: "WIP task",
+      parentId: "",
+      status: "in-progress",
+    }),
+    mk(`${folder}/task-done.md`, {
+      id: "t4",
+      title: "Done task",
+      parentId: "",
+      status: "done",
+    }),
+    // subtasks — linked via parentId, NO status field → go to "(none)"
+    mk(`${folder}/sub-a.md`, { id: "s1", title: "Sub A", parentId: "t1" }),
+    mk(`${folder}/sub-b.md`, { id: "s2", title: "Sub B", parentId: "t3" }),
+    mk(`${folder}/sub-c.md`, { id: "s3", title: "Sub C", parentId: "t3" }),
+  ];
+
+  const sameFolderCfg: import("../src/graph").MapCfg = {
+    levels: [
+      {
+        id: "tasks",
+        from: folder,
+        where: { parentId: null }, // top-level tasks only
+        card: { title: "title", meta: ["status"] },
+      },
+      {
+        id: "subtasks",
+        from: folder, // SAME folder, no where → picks up the subtasks
+        card: { title: "title" },
+      },
+    ],
+    edges: [{ from: "tasks", to: "subtasks", via: "parentId" }],
+    kanban: { groupBy: "status" },
+    filter: ["status"],
+  };
+
+  it("produces 4 columns (todo/in-progress/done/none) — not stacked into one", () => {
+    const m = buildRenderModel(
+      { ...sameFolderCfg, view: "kanban" },
+      sameFolder,
+      resolverFor(sameFolder)
+    );
+    expect(m.view).toBe("kanban");
+    // 3 status columns + 1 (none) column for subtasks without status
+    expect(m.headers.map((h) => h.label)).toContain("todo");
+    expect(m.headers.map((h) => h.label)).toContain("in-progress");
+    expect(m.headers.map((h) => h.label)).toContain("done");
+    expect(m.headers.map((h) => h.label)).toContain("(none)");
+    expect(m.headers.length).toBe(4);
+  });
+
+  it("all 7 nodes are placed and none is lost in the (none) bucket", () => {
+    const m = buildRenderModel(
+      { ...sameFolderCfg, view: "kanban" },
+      sameFolder,
+      resolverFor(sameFolder)
+    );
+    expect(m.nodes.length).toBe(7);
+    const noneHeader = m.headers.find((h) => h.label === "(none)")!;
+    expect(noneHeader.count).toBe(3); // three statusless subtasks
+  });
+
+  it("each column header sits at a distinct x — columns are side-by-side not stacked", () => {
+    const m = buildRenderModel(
+      { ...sameFolderCfg, view: "kanban" },
+      sameFolder,
+      resolverFor(sameFolder)
+    );
+    const xs = m.headers.map((h) => h.x);
+    // all x values must be unique (no two columns share the same horizontal position)
+    expect(new Set(xs).size).toBe(xs.length);
+    // and they must be strictly increasing (left-to-right order)
+    expect(xs).toEqual([...xs].sort((a, b) => a - b));
+  });
+
+  it("nodes in different columns have different x coordinates", () => {
+    const m = buildRenderModel(
+      { ...sameFolderCfg, view: "kanban" },
+      sameFolder,
+      resolverFor(sameFolder)
+    );
+    // build a map: nodeId -> column label (via the header x)
+    const xToLabel = Object.fromEntries(m.headers.map((h) => [h.x, h.label]));
+    const byColumn: Record<string, string[]> = {};
+    m.nodes.forEach((n) => {
+      const col = xToLabel[n.x] ?? `x=${n.x}`;
+      (byColumn[col] = byColumn[col] || []).push(n.id);
+    });
+    // todo nodes must NOT share x with in-progress or done nodes
+    const todoXs = m.nodes
+      .filter((n) => xToLabel[n.x] === "todo")
+      .map((n) => n.x);
+    const wipXs = m.nodes
+      .filter((n) => xToLabel[n.x] === "in-progress")
+      .map((n) => n.x);
+    const doneXs = m.nodes
+      .filter((n) => xToLabel[n.x] === "done")
+      .map((n) => n.x);
+    const noneXs = m.nodes
+      .filter((n) => xToLabel[n.x] === "(none)")
+      .map((n) => n.x);
+    // each status group must have at least one node, all at the same x, distinct from others
+    expect(todoXs.length).toBeGreaterThan(0);
+    expect(wipXs.length).toBeGreaterThan(0);
+    expect(doneXs.length).toBeGreaterThan(0);
+    expect(noneXs.length).toBeGreaterThan(0);
+    const uniqueX = (arr: number[]) => (new Set(arr).size === 1 ? arr[0] : NaN);
+    const tx = uniqueX(todoXs),
+      wx = uniqueX(wipXs),
+      dx = uniqueX(doneXs),
+      nx = uniqueX(noneXs);
+    expect([tx, wx, dx, nx].every((v) => !isNaN(v))).toBe(true); // each column has one x
+    expect(new Set([tx, wx, dx, nx]).size).toBe(4); // all four x values are distinct
+  });
+
+  it("subtasks with no status field land in (none), not in a status column", () => {
+    const m = buildRenderModel(
+      { ...sameFolderCfg, view: "kanban" },
+      sameFolder,
+      resolverFor(sameFolder)
+    );
+    const noneX = m.headers.find((h) => h.label === "(none)")!.x;
+    const subtaskIds = [
+      `${folder}/sub-a.md`,
+      `${folder}/sub-b.md`,
+      `${folder}/sub-c.md`,
+    ];
+    subtaskIds.forEach((id) => {
+      const node = m.nodes.find((n) => n.id === id)!;
+      expect(node).toBeDefined();
+      expect(node.x).toBe(noneX);
+    });
+  });
+});

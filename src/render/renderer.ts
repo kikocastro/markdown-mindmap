@@ -67,12 +67,13 @@ export function renderModel(
 
   // ---- gantt: axis + one row per node (label, bar/diamond) ----
   function drawGantt(gm: GanttModel) {
+    const m = gm.metrics; // density-scaled row height + font sizes
     const gridBottom = Math.max(gm.contentBottom, GANTT.top);
     gm.ticks.forEach((t) => {
       svgEl(
         "line",
         {
-          class: "mm-grid",
+          class: "mm-grid" + (t.major ? " mm-grid-major" : ""),
           x1: t.x,
           y1: gm.axisY + 6,
           x2: t.x,
@@ -88,43 +89,73 @@ export function renderModel(
     });
     gm.rows.forEach((r) => {
       const g = svgEl("g", { class: "mm-node" }, rootG);
-      const indent = 8 + r.indent * GANTT.indent;
-      const label =
-        wrap(
-          r.label,
-          gm.labelWidth - indent - 12,
-          CARD_METRICS.titleSize,
-          1
-        )[0] ?? "";
+      // 20px gutter before every label keeps them aligned whether or not a
+      // collapse toggle is drawn in it
+      const indent = 8 + r.indent * m.indent + 20;
+      // left column: title wrapped to 2 lines (ellipsised if it overflows), with
+      // the tags on their own line below it so they're always fully readable.
+      const colW = gm.labelWidth - indent - 12;
+      const full = r.label.replace(/\s+/g, " ").trim();
+      const titleLines = wrap(full, colW, m.titleSize, 2);
+      // wrap() drops overflow words silently; flag the last line if any were cut
+      if (titleLines.join(" ").length < full.length) {
+        const perChar = m.titleSize * 0.6;
+        const max = Math.max(1, Math.floor(colW / perChar) - 1);
+        const last = titleLines[titleLines.length - 1];
+        titleLines[titleLines.length - 1] =
+          (last.length > max ? last.slice(0, max) : last) + "…";
+      }
+      // vertically center the title (+ optional tags line) block in the row, so
+      // taller comfortable-density rows don't leave the text hugging the top
+      const lineCount = titleLines.length + (r.labelText ? 1 : 0);
+      const firstBaseline = r.y + (r.h - lineCount * m.lineH) / 2 + m.titleSize;
       const txt = svgEl(
         "text",
         {
           class: "mm-t1",
           x: indent,
-          y: r.y + r.h / 2 + 4,
-          "font-size": CARD_METRICS.titleSize,
+          y: firstBaseline,
+          "font-size": m.titleSize,
         },
         g
       );
-      txt.textContent = label;
-      if (label.length < r.label.replace(/\s+/g, " ").trim().length)
-        svgEl("title", {}, g).textContent = r.label;
+      titleLines.forEach((ln, i) => {
+        svgEl(
+          "tspan",
+          i === 0 ? { x: indent } : { x: indent, dy: m.lineH },
+          txt
+        ).textContent = ln;
+      });
+      if (r.labelText)
+        svgEl(
+          "text",
+          {
+            class: "mm-gantt-sub",
+            x: indent,
+            y: firstBaseline + titleLines.length * m.lineH,
+            "font-size": m.subSize,
+          },
+          g
+        ).textContent = r.labelText;
+      // rich tooltip on the whole row (title + dates + status + progress + tags)
+      svgEl("title", {}, g).textContent = r.tooltip;
       const cy = r.y + r.h / 2;
       if (r.bar) {
-        const barY = r.y + (r.h - 14) / 2;
-        svgEl(
+        const barY = r.y + (r.h - m.barH) / 2;
+        const barRect = svgEl(
           "rect",
           {
             x: r.bar.x,
             y: barY,
             width: Math.max(3, r.bar.w),
-            height: 14,
+            height: m.barH,
             rx: 4,
             fill: r.color,
             "fill-opacity": 0.3,
           },
           g
         );
+        svgEl("title", {}, barRect).textContent = r.tooltip;
         if (r.bar.progressW != null)
           svgEl(
             "rect",
@@ -132,26 +163,96 @@ export function renderModel(
               x: r.bar.x,
               y: barY,
               width: r.bar.progressW,
-              height: 14,
+              height: m.barH,
               rx: 4,
               fill: r.color,
             },
             g
           );
+        // card title overlaid on the bar, white, ellipsised to the bar width.
+        // ponytail: char-count width estimate (no SVG text metrics), matches core.
+        const inset = 6;
+        const perChar = m.titleSize * 0.6;
+        const maxChars = Math.floor(
+          (Math.max(3, r.bar.w) - inset * 2) / perChar
+        );
+        let barTitle = r.label.replace(/\s+/g, " ").trim();
+        if (maxChars <= 0) barTitle = "";
+        else if (barTitle.length > maxChars)
+          barTitle = barTitle.slice(0, Math.max(1, maxChars - 1)) + "…";
+        if (barTitle)
+          svgEl(
+            "text",
+            {
+              class: "mm-gantt-bartitle",
+              x: r.bar.x + inset,
+              // baseline ~0.35em below the bar centre keeps the text visually
+              // centred at any font size (the fixed +3 rode high on comfortable)
+              y: cy + m.titleSize * 0.35,
+              "font-size": m.titleSize - 1,
+            },
+            g
+          ).textContent = barTitle;
       } else if (r.milestone) {
         const x = r.milestone.x;
-        svgEl(
+        const d = m.barH / 2; // diamond half-diagonal tracks the bar height
+        const diamond = svgEl(
           "path",
           {
             class: "mm-milestone",
-            d: `M${x},${cy - 7} L${x + 7},${cy} L${x},${cy + 7} L${x - 7},${cy} Z`,
+            d: `M${x},${cy - d} L${x + d},${cy} L${x},${cy + d} L${x - d},${cy} Z`,
             fill: r.color,
           },
           g
         );
+        svgEl("title", {}, diamond).textContent = r.tooltip;
+      }
+      // collapse toggle in the 20px label gutter (same glyphs as the map
+      // toggle); only when the adapter handles toggling (the webview doesn't).
+      // mm-gantt-toggle keeps the muted look — the accent fill is too loud in
+      // a dense chart.
+      if (r.hasKids && cb.onToggle) {
+        const cx = indent - 12;
+        // collapsed toggles get a distinct class + bigger circle so contracted subtrees stand out
+        const tg = svgEl(
+          "g",
+          {
+            class:
+              "mm-toggle mm-gantt-toggle" +
+              (r.collapsed ? " mm-collapsed" : ""),
+          },
+          g
+        );
+        svgEl("circle", { cx, cy, r: r.collapsed ? 8 : 7 }, tg);
+        svgEl("text", { x: cx, y: cy + 4 }, tg).textContent = r.collapsed
+          ? "+"
+          : "−";
+        tg.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          cb.onToggle!(r.id);
+        });
       }
       interact(g, r.id);
     });
+    // vertical "today" marker, drawn last so it sits over the bars
+    if (gm.todayX != null) {
+      svgEl(
+        "line",
+        {
+          class: "mm-today",
+          x1: gm.todayX,
+          y1: gm.axisY + 6,
+          x2: gm.todayX,
+          y2: gridBottom,
+        },
+        rootG
+      );
+      svgEl(
+        "text",
+        { class: "mm-today-label", x: gm.todayX + 3, y: gm.axisY - 8 },
+        rootG
+      ).textContent = "today";
+    }
   }
 
   if (model.view === "gantt" && model.gantt) {

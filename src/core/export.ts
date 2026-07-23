@@ -2,6 +2,8 @@
 // buttons in the Obsidian adapter. No DOM here — the adapter clones the live
 // SVG for HTML and feeds geometry from the RenderModel for Excalidraw.
 
+import type { RenderModel } from "./render-model";
+
 // ---- export --------------------------------------------------------------
 
 // HTML export destination: sibling of the note, ".md" swapped for " mindmap.html".
@@ -156,6 +158,80 @@ export const mapToExcalidraw = (
     appState: { gridSize: null, viewBackgroundColor: "#ffffff" },
     files: {},
   };
+};
+
+// A card's label: the title, plus the sub line unless titles are collapsed.
+const cardText = (title: string, sub: string, titleOnly: boolean): string =>
+  !titleOnly && sub ? title + "\n" + sub : title;
+
+// gantt v1 geometry constants
+const MIN_BAR_W = 8; // ponytail: sub-day / zero-width bars still need a visible box
+const MILESTONE = 14; // ponytail: no diamond primitive — a small square at the milestone x
+
+// Pure RenderModel -> Excalidraw geometry, dispatching on the view actually in
+// the model so the export mirrors what's on screen. Feed the result to
+// mapToExcalidraw (nodes + edges -> the v2 file).
+// ponytail: gantt drops the axis / ticks / today-line and the hierarchy arrows
+// (row order + indent carry it), kanban drops the swimlane framing; both emit
+// rectangles only. Same lossy v1 ceiling as mapToExcalidraw.
+export const modelToExcalidraw = (
+  model: RenderModel
+): { nodes: ExNode[]; edges: ExEdge[] } => {
+  if (model.view === "gantt") {
+    const g = model.gantt!; // render-model guarantees gantt is set for this view
+    const nodes: ExNode[] = g.rows.map((r) => {
+      if (r.bar)
+        return {
+          x: r.bar.x,
+          y: r.y,
+          w: Math.max(r.bar.w, MIN_BAR_W),
+          h: r.h,
+          color: r.color,
+          text: r.label,
+        };
+      if (r.milestone)
+        return {
+          x: r.milestone.x - MILESTONE / 2,
+          y: r.y,
+          w: MILESTONE,
+          h: MILESTONE,
+          color: r.color,
+          text: r.label,
+        };
+      // dateless row: park a rect in the left label column so nothing is dropped
+      return {
+        x: 0,
+        y: r.y,
+        w: g.labelWidth,
+        h: r.h,
+        color: r.color,
+        text: r.label,
+      };
+    });
+    return { nodes, edges: [] };
+  }
+
+  // map + kanban are both card-based; model.edges is [] for kanban, so the
+  // edge mapping is a no-op there and only the map emits arrows.
+  const nodes: ExNode[] = model.nodes.map((n) => ({
+    x: n.x,
+    y: n.y,
+    w: n.w,
+    h: n.h,
+    color: n.color,
+    text: cardText(n.title, n.sub, model.titleOnly),
+  }));
+  const index = new Map(model.nodes.map((n, i) => [n.id, i]));
+  const edges: ExEdge[] = model.edges.map((e) => ({
+    x1: e.x1,
+    y1: e.y1,
+    x2: e.x2,
+    y2: e.y2,
+    color: e.color,
+    source: index.get(e.a),
+    target: index.get(e.b),
+  }));
+  return { nodes, edges };
 };
 
 // Excalidraw export destination: sibling of the note, ".md" -> ".excalidraw".
