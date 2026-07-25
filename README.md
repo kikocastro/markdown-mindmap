@@ -27,15 +27,16 @@ It ships as **two adapters over one shared core** (`src/graph.ts`): the **Obsidi
 ## Features
 
 - **Live from frontmatter.** Folders become columns; frontmatter links become edges. Add or remove a note and the map updates.
-- **Three views over one dataset.** The same block renders as a mind **map**, a **gantt** (bars by start/due, progress fill, milestone diamonds), or a **kanban** board (columns by any field) — switch from the toolbar, filters and search apply everywhere.
+- **Three views over one dataset.** The same block renders as a mind **map**, a **gantt** (bars by start/due, progress fill, status colours, a _today_ marker, milestone diamonds), or a **kanban** board (columns by any field) — switch from the toolbar, filters and search apply everywhere.
 - **Per-level card design.** Pick which fields show as title / subtitle / meta per level; cards auto-size to their content.
 - **Edges from links.** A `[[wikilink]]`, plain title, basename, list, or nested field (`customFields.serves`) on either end of an edge.
 - **Secondary (dashed) links.** Mark cross-links that should draw dashed and stay out of the layout spine (e.g. "also relates to").
 - **Bar charts & progress bars.** Render a 0–100 field as a progress bar, or a list field as a stacked count-by-category bar.
-- **Multi-select filters and saved views.** Toggle-chip filters per property (OR within a property, AND across), then save named filter combinations back into the map block. Each saved view also remembers which subtrees are collapsed.
-- **Export.** Save the current map next to the note as a standalone HTML file or an editable Excalidraw drawing.
+- **Multi-select filters and saved views.** Toggle-chip filters per property (OR within a property, AND across), then save named filter combinations back into the map block. Each saved view also remembers which subtrees are collapsed and which view type it opened in, and the one you pick is remembered across Obsidian restarts.
+- **Strict or hierarchy-aware filtering.** By default a filtered-out note takes its subtree with it; set `filterKeepsHierarchy: true` to keep matches in context — their subtasks ride along and their ancestors stay visible.
+- **Export.** Save the current view next to the note as a standalone HTML file or an editable Excalidraw drawing.
 - **Search highlight.** A search box that spotlights matching cards and dims the rest.
-- **Collapse / expand** any subtree, focus a node's lineage/subtree, **pan / zoom / fit / fullscreen**; click a card for a dialog with its linked parents/children, optional properties, and the rendered note.
+- **Collapse / expand** any subtree, focus a node's lineage/subtree, **pan / zoom / fit / fullscreen**; click a card for a dialog with its linked parents/siblings/children, optional properties, and the rendered note.
 - **Theme-aware.** Uses Obsidian CSS variables, so it follows your light/dark theme.
 
 ## How it works
@@ -101,26 +102,28 @@ filter: [status]
 ```
 ````
 
-> A runnable copy of this map, with sample notes, lives in [`examples/mindmap-demo/`](examples/mindmap-demo). Copy that folder into your vault root and open `Mindmap demo.md`.
+> A runnable copy of this map, with sample notes, lives in [`examples/mindmap-demo/`](examples/mindmap-demo). Copy that folder into your vault root and open `Mindmap demo.md`. A second, richer tree — an Opportunity Solution Tree with interview-quote subtitles and a saved view — lives in [`examples/ost-demo/`](examples/ost-demo). See [`examples/README.md`](examples/README.md) for what each demo exercises.
 
 ## Configuration reference
 
 **Top level**
 
-| Key            | Type            | Meaning                                                                                                              |
-| -------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `title`        | string          | Heading in the toolbar.                                                                                              |
-| `height`       | number          | Component height in px (default `900`).                                                                              |
-| `view`         | string          | Initial view: `map` (default), `gantt`, or `kanban`.                                                                 |
-| `levels`       | list            | Columns, left to right. **Required.**                                                                                |
-| `edges`        | list            | Parent → child links between levels.                                                                                 |
-| `gantt`        | map             | Gantt view config (see [Gantt & kanban views](#gantt--kanban-views)). Configuring it adds the view to the switcher.  |
-| `kanban`       | map             | Kanban view config (same section). Configuring it adds the view to the switcher.                                     |
-| `filter`       | list of strings | Frontmatter properties exposed as multi-select chip filters.                                                         |
-| `filterLabels` | map             | Rename a filter group's heading, e.g. `{ customFields.quarters: Quarter }`. Unlisted properties keep their raw name. |
-| `layout`       | map             | Override card/column sizing (below). All keys optional.                                                              |
-| `properties`   | boolean         | When `true`, the note dialog shows all frontmatter as a table above the rendered note.                               |
-| `views`        | list            | Saved views (filters + collapse + view mode), managed by the toolbar's saved-view controls.                          |
+| Key                    | Type            | Meaning                                                                                                                                                    |
+| ---------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`                | string          | Heading in the toolbar.                                                                                                                                    |
+| `height`               | number          | Component height in px (default `900`).                                                                                                                    |
+| `view`                 | string          | Initial view: `map` (default), `gantt`, or `kanban`.                                                                                                       |
+| `levels`               | list            | Columns, left to right. **Required.**                                                                                                                      |
+| `edges`                | list            | Parent → child links between levels.                                                                                                                       |
+| `gantt`                | map             | Gantt view config (see [Gantt & kanban views](#gantt--kanban-views)). Configuring it adds the view to the switcher.                                        |
+| `kanban`               | map             | Kanban view config (same section). Configuring it adds the view to the switcher.                                                                           |
+| `filter`               | list of strings | Frontmatter properties exposed as multi-select chip filters.                                                                                               |
+| `filterLabels`         | map             | Rename a filter group's heading, e.g. `{ customFields.quarters: Quarter }`. Unlisted properties keep their raw name.                                       |
+| `filterKeepsHierarchy` | boolean         | Default `false` (strict): a filtered-out note hides itself **and** its subtree. `true` keeps context (below).                                              |
+| `layout`               | map             | Override card/column sizing (below). All keys optional.                                                                                                    |
+| `properties`           | boolean         | When `true`, the note dialog shows all frontmatter as a table above the rendered note.                                                                     |
+| `views`                | list            | Saved views (filters + collapse + view mode), managed by the toolbar's saved-view controls.                                                                |
+| `activeView`           | string          | Name of the saved view to re-select on render. Written by the toolbar when you pick one, so the choice survives an Obsidian restart; cleared by **Reset**. |
 
 **`layout`** (all optional, defaults shown)
 
@@ -182,6 +185,15 @@ All card field values are frontmatter property names. Dotted paths work everywhe
 
 A `via` value is matched, in order, against: Obsidian's own link resolution (`[[wikilink]]`), then the target's **basename**, then its `title` frontmatter, then its `id` frontmatter (so pm-style `parentId: p-broker-operator` hierarchies link up). A value may be a single link or a list. A note's **first non-secondary** parent is its layout parent (single-parent tree); any extra parents still draw edges.
 
+### How filters treat the hierarchy
+
+A filter only constrains notes that **have** the property — a note missing it is never filtered out by that chip. What differs is what happens to the notes around a match:
+
+- **Strict (default).** A note that fails the filter hides itself and its whole primary subtree. Good for "show me only the devops tasks", where a parent that isn't devops shouldn't drag its children in.
+- **`filterKeepsHierarchy: true`.** A match keeps its context: its primary **subtree rides along** (a matching epic still shows its subtasks, whatever their own status) and its **ancestors stay visible** as scaffolding. Good for a roadmap where you want the tree shape intact around the hits.
+
+Collapse always applies last, so a contracted subtree stays hidden under either mode.
+
 ## Gantt & kanban views
 
 The same collected + filtered tree can render as a **gantt** or a **kanban** board. Add the config block(s) and a view switcher appears in the toolbar; set `view:` to make one the default. Filters, search, collapse, and saved views apply in every view — a saved view pins **filters + view mode**, so you can keep e.g. a "devops · gantt" view one click away.
@@ -213,12 +225,18 @@ filter: [status, tags]
 | `start`       | field                                    | Start date (ISO, e.g. `2026-06-09`). **Required.**                                                                                                       |
 | `end`         | field                                    | End/due date. **Required.**                                                                                                                              |
 | `progress`    | field (0–100)                            | Bar fill. Defaults to the card's `progress` field.                                                                                                       |
+| `status`      | field                                    | Field driving the bar/milestone colour (default `status`). See the status colours below.                                                                 |
 | `scale`       | `week` \| `month` \| `quarter` \| `year` | Axis tick unit (default `month`). Also switchable from the toolbar's Scale chips.                                                                        |
 | `density`     | `compact` \| `comfortable`               | Default `compact`. `comfortable` scales up rows and fonts for reading from a distance (presentations). Also switchable from the toolbar's Density chips. |
 | `sortByStart` | bool                                     | Default `true`: rows sort by crescent start date (dateless last). `false` restores the raw tree/path order.                                              |
 | `groupRows`   | bool                                     | Default `true`: rows follow the tree order with subtasks indented under parents. `false`: flat path order.                                               |
+| `showLabels`  | bool                                     | Default `true`: the card's `labels`, `·`-joined, on a discreet second line under the row title. `false` drops them for a barer chart.                    |
 
-Rows render as bars from `start` to `end` with a progress fill. A task whose `start` equals its `end` (or that has only one of the two) renders as a **milestone diamond**. Tasks with neither date get a plain row. Click a row to open the note. The card's `labels` render as pills right of the bar (or at the axis origin for dateless rows). Nested items can be contracted/expanded with a per-row toggle — the same collapse state as the map view, so saved views' collapsed lists apply here too. The toolbar's **show subtasks** chip (under **Rows**) expands/contracts every parent row at once; it's off by default, so the gantt opens with nested rows hidden.
+Rows render as bars from `start` to `end` with a progress fill. A task whose `start` equals its `end` (or that has only one of the two) renders as a **milestone diamond**. Tasks with neither date get a plain row. Click a row to open the note; hover one for a native tooltip with the full title, date range, status, progress, and tags. A vertical **today** marker is drawn when the current date falls inside the charted range.
+
+`sortByStart` sorts _within_ the hierarchy: siblings (and roots) are ordered by start date, but children stay grouped under their parent — the tree is never flattened. Nested items can be contracted/expanded with a per-row toggle, sharing the map view's collapse state, so saved views' collapsed lists apply here too. The toolbar's **show subtasks** chip (under **Rows**) expands/contracts every parent row at once; it's on by default, so the gantt opens with nested rows showing.
+
+**Status colours.** Bars and milestones colour themselves from the `status` field, matched case- and space-insensitively: green for `done` / `complete` / `completed` / `closed` / `shipped`, blue for `in progress` / `in-progress` / `doing` / `active` / `wip` / `started` / `ongoing`, grey for `todo` / `to do` / `planned` / `backlog` / `open` / `not started` / `new` / `pending`. Any other (or missing) value falls back to the level's colour.
 
 **`kanban`**
 
@@ -258,20 +276,22 @@ filter: [horizon, kind, status]
 
 ## Interactions
 
+The toolbar is a sidebar rail down the left of the map: title and search at the top, then the chip groups (**View**, **Scale**, **Density**, **Rows**, one per filter property, **Saved views**), then a footer with **Display**, **Export**, and the **Reset** / **Help** row.
+
 - **Search** box — spotlight cards matching title / sub / meta, dim the rest.
-- **View switcher** — flip the same data between map / gantt / kanban (shown when `gantt:` or `kanban:` is configured).
+- **View** chips — flip the same data between map / gantt / kanban (shown when `gantt:` or `kanban:` is configured).
+- **Scale** / **Density** / **Rows** chips — gantt only: axis unit (week / month / quarter / year), compact vs comfortable row size, and **show subtasks** to expand or contract every parent row at once.
 - **Filter chips** — multi-select per property (OR within, AND across), with options sorted alphabetically.
-- **Saved views** — save the current filter combination + view mode, apply it from the dropdown, edit it, or delete it. Each view also stores which subtrees are collapsed, so applying it restores that shape. Saved views are written to the block's `views:` key.
-- **Export** — save the current map next to the note as a standalone `.html` file or an editable `.excalidraw` drawing.
-- **Hover** a card — highlight its full up/down lineage.
+- **Saved views** — save the current filter combination + view mode, apply it from the dropdown, edit it, or delete it. Each view also stores which subtrees are collapsed, so applying it restores that shape. Saved views are written to the block's `views:` key, and the selected one to `activeView:`.
+- **Export** — save the current view next to the note as a standalone `.html` file or an editable `.excalidraw` drawing. Both capture what's on screen now, including the active filters, collapse state, and view type.
+- **Hover** a card — highlight its full up/down lineage (in gantt and kanban too, walking the same parent tree).
 - **Click** a card — open a dialog: title + file name, level badge, progress/demand breakdown, its **linked parents, siblings, and children** (click one to jump the dialog there), optional frontmatter properties, the rendered note, "Open note", and "Focus".
-- **Focus** from a card dialog — show that node, its ancestors, and its primary descendants; click empty map space to clear focus.
-- **Titles only** — toggle the toolbar button to hide each card's subtitle, meta, bars, and labels, leaving just the title.
-- **+ / −** on a card — collapse / expand its subtree.
-- **⟨ / ☰** — collapse the toolbar to a single button (and expand it back) when it gets in the way.
-- **?** — open the quick-reference help dialog.
-- **⛶** — fullscreen. **Reset** — clear filters/search/collapse/focus and refit.
-- **Drag** to pan, **scroll** to zoom.
+- **Focus** from a card dialog — show that node, its ancestors, and its primary descendants. Focus persists while you pan and click; a **Focus: …** chip appears at the top of the rail, and its **✕** (or **Reset**) clears it.
+- **Titles only** — hide each card's subtitle, meta, bars, and labels, leaving just the title. Hidden in the gantt view, which draws rows rather than cards.
+- **+ / −** on a card, or the per-row toggle in the gantt — collapse / expand its subtree.
+- **«** / **☰** — collapse the toolbar rail to a single button (and expand it back) when it gets in the way.
+- **Help** — open the quick-reference help dialog. **Fullscreen** — toggle fullscreen. **Reset** — clear filters/search/collapse/focus/titles-only, return to the block's default view, and refit.
+- **Drag** to pan, **scroll** to zoom. Clicking empty map space clears the sticky hover highlight.
 
 ## Development
 
@@ -312,7 +332,9 @@ The same core also drives a VS Code extension (`src/vscode/`). Unlike Obsidian, 
 - `from:` is folder-only (no tag / Dataview queries yet).
 - Link resolution matches a wikilink, basename, `title`, or `id` — not an arbitrary shared field value (so a keyword like `stage: claims` won't auto-link unless a note of that basename/title/id exists).
 - Layout centring assumes primary edges connect adjacent levels.
-- Gantt: no dependency arrows and no date-range filtering yet (filters are discrete values).
+- Gantt: no dependency arrows and no date-range filtering yet (filters are discrete values). Dates are read, never written — there's no drag-to-reschedule.
+- Excalidraw export is lossy by design: rounded boxes, centred labels, and straight arrows — no curves, progress bars, label pills, or column headers.
+- Causal maps: cycle detection is bounded (at most 64 loops, 12 nodes long), so a very dense graph reports the first loops found rather than every one.
 
 ## Causal maps (systems thinking)
 
@@ -354,9 +376,12 @@ What you get:
   parity: an even number of `-` edges makes a **reinforcing** loop, odd makes a **balancing**
   one. No hand-maintained loop lists to drift out of date.
 - **Loop rail**: every detected loop as a chip (● amber = reinforcing, ● teal = balancing);
-  click one to spotlight exactly its edges and nodes — the retro projector view. Loops whose
-  edges share a `loops:` tag take that name; a matching card in `loopFolders` (frontmatter
-  `id` + `label`) supplies the display label. Untagged cycles get auto names (`L1`, `L2`, …).
+  click one to spotlight exactly its edges and nodes — the retro projector view, click again to
+  release. Hovering a chip shows the whole cycle as a `A → B → C → A` tooltip. Loops whose
+  edges share a `loops:` tag take that name and lead the rail alphabetically; a matching card in
+  `loopFolders` (frontmatter `id` + `label`) supplies the display label. Untagged cycles get auto
+  names (`L1`, `L2`, …) and follow in discovery order.
+- **Type legend**: a **Types** rail listing the node types actually present with their colours.
 - **Signed edges**: curved arrows with a `+`/`−` badge; negative links draw dashed.
 - **Deterministic force-directed layout** — the same notes always produce the same picture.
 - Hover a node to light up everything it affects and is affected by; click it for the note

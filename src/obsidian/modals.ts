@@ -137,19 +137,27 @@ filter: [status]
 - **view** — initial view: \`map\` (default), \`gantt\`, or \`kanban\`
 - **levels** — columns, left to right (**required**)
 - **edges** — parent → child links between levels
-- **gantt** — gantt view config: \`{ start, end, progress?, scale?, groupRows? }\` (field names; scale: week/month/quarter)
+- **gantt** — gantt view config: \`{ start, end, progress?, status?, scale?, density?, groupRows?, sortByStart?, showLabels? }\` (field names; scale: week/month/quarter/year)
 - **kanban** — kanban view config: \`{ groupBy, columns?, colors? }\`
 - **filter** — properties shown as chip filters
 - **filterLabels** — rename a filter group's heading
+- **filterKeepsHierarchy: true** — keep matches in context: their subtree rides along and their ancestors stay visible (default \`false\` = a filtered-out note hides its subtree too)
 - **layout** — override card/column sizing
 - **properties: true** — show all frontmatter in the note dialog
 - **views** — saved views: filters + collapse + view mode (managed by the toolbar)
+- **activeView** — the saved view to re-select on render (written when you pick one, so it survives a restart)
 
 ### Views
 Configuring \`gantt:\` or \`kanban:\` adds a **View** switcher to the toolbar; the same
 filtered tree renders as a mind map, a gantt (bars start→end, progress fill, a
 diamond when start = end or one date is missing), or a kanban board (columns by
 \`groupBy\`). Filters, search, collapse, and saved views apply in every view.
+
+In the gantt, bars colour themselves from the \`status\` field (green = done, blue =
+in progress, grey = todo; anything else falls back to the level colour), a vertical
+**today** marker is drawn when today is in range, and hovering a row shows the
+title, dates, status, progress, and tags. The **Scale**, **Density**, and **Rows**
+chip groups switch the axis unit, the row size, and whether nested rows show.
 
 ### Each level
 - **id** (required) — referenced by edges
@@ -179,14 +187,14 @@ Field values are frontmatter property names; dotted paths work everywhere (\`cus
 - **View switcher** — flip between map / gantt / kanban
 - **Filter chips** — multi-select per property (OR within, AND across)
 - **Saved views** — save / apply / edit / delete a filter + view-mode combination; each view also remembers which subtrees are collapsed
-- **Export** — save the current map next to the note as a standalone **HTML** file or an editable **Excalidraw** drawing
+- **Export** — save the current view next to the note as a standalone **HTML** file or an editable **Excalidraw** drawing (both capture the filters/collapse/view showing now)
 - **Hover** a card — highlight its full up/down lineage
 - **Click** a card — dialog with its linked parents, siblings, and children (click to jump), properties, and the rendered note
-- **Focus** (from the dialog) — show a node, its ancestors, and primary descendants; persists until you click empty map space to clear
-- **Titles only** — hide subtitle/meta/bars/labels, leaving just titles
-- **+ / −** — collapse / expand a subtree
-- **⟨ / ☰** — collapse the toolbar to a single button, or expand it back
-- **⛶** fullscreen · **Reset** clears filters/search/collapse/focus · drag to pan, scroll to zoom
+- **Focus** (from the dialog) — show a node, its ancestors, and primary descendants; it persists while you pan and click, and the **Focus: …** chip's **✕** at the top of the rail clears it
+- **Titles only** — hide subtitle/meta/bars/labels, leaving just titles (map + kanban)
+- **+ / −** — collapse / expand a subtree, on a card or a gantt row
+- **«** / **☰** — collapse the toolbar rail to a single button, or expand it back
+- **Fullscreen** · **Reset** clears filters/search/collapse/focus and returns to the default view · drag to pan, scroll to zoom
 
 ## Causal maps (systems thinking)
 
