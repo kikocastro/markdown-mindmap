@@ -12,7 +12,7 @@ Leveled left-to-right mind maps from note frontmatter links, with **two adapters
 - `src/graph.ts` — re-exporting barrel over `src/core/`; every import path goes through it.
 - `src/causal.ts` — **pure causal-map core.** Imports only from `graph.ts`. Signed-edge collection, cycle detection, loop polarity, force-directed layout. Same rules as the core: host-free, 100% covered.
 - `src/render/` — **shared SVG renderer** (`renderer.ts` draws a `RenderModel` into an injected document/SVG root for all three views; `panzoom.ts` owns pan/zoom/fit). The only DOM code outside the adapters; coverage-excluded like them, but lint-covered and bundled into both builds.
-- `src/obsidian/main.ts` — **Obsidian adapter** (with `src/obsidian/causal.ts` for ` ```causalmap ` blocks); only these files import `obsidian`. Owns host I/O (vault read, resolver, code-block processor, YAML write-back), toolbar/state wiring, exports, and the note `Modal`. Builds `main.js`.
+- `src/obsidian/` — **Obsidian adapter.** `main.ts` (` ```mindmap ` blocks), `causal.ts` (` ```causalmap ` blocks), `modals.ts` (prompt/confirm/help/note dialogs) — the only files that import `obsidian` — plus `svg.ts`, a host-free element helper. Owns host I/O (vault read, resolver, code-block processor, YAML write-back), toolbar/state wiring, and exports. Builds `main.js`.
 - `src/vscode/` — **VS Code adapter.** `extension.ts` (host: reads workspace markdown, runs `buildRenderModel`, posts the `RenderModel`), `webview.ts` (bootstrap: shared renderer + pan/zoom + click-to-open). Builds `dist/extension.js` + `dist/webview.js`.
 - `styles.css` — Obsidian theming via CSS variables. (VS Code styling is inline in the webview HTML shell, using `--vscode-*` vars.)
 - `test/` — vitest, exercising the core through plain `NoteLike` data (host-agnostic).
@@ -46,3 +46,4 @@ git push --follow-tags
 - **TDD on the core.** Test-first for anything under `src/core/` (via the `src/graph.ts` barrel): red, watch it fail, green. Pre-commit and pre-push hooks run typecheck + tests.
 - DOM code in `main.ts` and `src/render/` is validated by build + manual Obsidian check (not unit-tested; the established split is "pure logic is tested, rendering is not").
 - Mark deliberate simplifications with a `// ponytail:` comment naming the ceiling.
+- **User-facing docs live in three places; change them together.** A new config key or toolbar control means updating `README.md` (the reference), the `HELP` string in `src/obsidian/modals.ts` (the in-app cheat sheet — the plugin can't read the README at runtime), and `examples/README.md` when a demo starts exercising it. The help modal drifting behind the README is the recurring failure here.
