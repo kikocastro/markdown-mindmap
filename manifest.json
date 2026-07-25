@@ -3,7 +3,7 @@
   "name": "Markdown Mindmap",
   "version": "1.4.1",
   "minAppVersion": "1.8.0",
-  "description": "Render configurable mind maps / leveled trees from your notes' frontmatter links. Define each map in a ```mindmap code block.",
+  "description": "Render mind maps, gantt charts, kanban boards, and causal-loop diagrams from your notes' frontmatter links. Each map is one fenced code block.",
   "author": "Kiko Castro",
   "authorUrl": "https://github.com/kikocastro",
   "isDesktopOnly": false
