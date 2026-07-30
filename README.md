@@ -226,7 +226,7 @@ Hovering a node lights up everything it affects and is affected by; clicking one
 
 ## Using a map
 
-The toolbar is a rail down the left: title and search at the top, then chip groups (**View**, **Scale**, **Density**, **Rows**, one per filter property, and **Saved views**), then a footer holding **Display**, **Export**, and the **Reset** / **Help** row.
+The toolbar is a rail down the left: title and search at the top, then chip groups (**View**, **Scale**, **Density**, **Rows**, one per filter property, and **Saved views**), then a footer holding **Display**, **Export**, and the **Reset** / **Refresh** / **Help** row.
 
 - **Search** — spotlight cards matching title / sub / meta and dim the rest.
 - **View** chips — flip between map / gantt / kanban (shown once `gantt:` or `kanban:` is configured).
@@ -240,6 +240,7 @@ The toolbar is a rail down the left: title and search at the top, then chip grou
 - **Titles only** — strip cards back to their titles, hiding subtitle, meta, bars, and labels. (Not shown in the gantt, which draws rows rather than cards.)
 - **+ / −** on a card, or a gantt row's toggle — collapse or expand that subtree.
 - **«** / **☰** — collapse the whole rail to a single button when it's in the way, and bring it back.
+- **Refresh** — re-read every note's frontmatter and redraw. A map reads the vault once, when the block renders, so edits to the notes it maps (a changed `gantt.end`, a new `status:`) don't show until the block re-runs. Your filters, view type, and collapse state carry over; pan/zoom and search do not, and it exits fullscreen.
 - **Help** opens a quick reference · **Fullscreen** toggles fullscreen · **Reset** clears filters, search, collapse, focus, and titles-only, returns to the block's default view, and refits.
 - **Drag** to pan, **scroll** to zoom. Clicking empty space clears the sticky hover highlight.
 
