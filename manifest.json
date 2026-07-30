@@ -1,7 +1,7 @@
 {
   "id": "markdown-mindmap",
   "name": "Markdown Mindmap",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "minAppVersion": "1.8.0",
   "description": "Render mind maps, gantt charts, kanban boards, and causal-loop diagrams from your notes' frontmatter links. Each map is one fenced code block.",
   "author": "Kiko Castro",
