@@ -475,7 +475,7 @@ function renderMindmap(
   });
   exportExBtn.onclick = exportExcalidraw;
 
-  // global utilities share one bottom row: Reset hugs the left, Help the right
+  // global utilities share one bottom row: Reset, Refresh, Help
   const footUtil = foot.createDiv({ cls: "mm-utilrow" });
 
   plugin.registerDomEvent(activeDocument, "fullscreenchange", () => {
@@ -655,6 +655,20 @@ function renderMindmap(
     fit();
     if (cfg.activeView) persistActiveView("").catch(reportViewError);
   };
+
+  // Frontmatter is read once, when the block renders (see the vault scan at the top of
+  // renderMindmap), so editing a child note leaves the map stale until something re-runs the
+  // processor. Re-invoking renderMindmap re-scans the vault; activeState (written on every
+  // draw) restores the view/filters/collapse across the teardown.
+  // ponytail: explicit button, not a metadataCache listener — an auto-redraw would reset
+  // pan/zoom and drop out of fullscreen on every unrelated vault edit. Also leaks one set of
+  // plugin-scoped window listeners per press, same as the existing persist re-render does;
+  // add teardown if that ever shows up in a profile.
+  const refreshBtn = footUtil.createEl("button", {
+    text: "Refresh",
+    attr: { title: "Re-read note frontmatter and redraw" },
+  });
+  refreshBtn.onclick = () => renderMindmap(app, plugin, source, host, ctx);
 
   const helpBtn = footUtil.createEl("button", {
     cls: "mm-help",

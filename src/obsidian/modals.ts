@@ -194,6 +194,7 @@ Field values are frontmatter property names; dotted paths work everywhere (\`cus
 - **Titles only** — hide subtitle/meta/bars/labels, leaving just titles (map + kanban)
 - **+ / −** — collapse / expand a subtree, on a card or a gantt row
 - **«** / **☰** — collapse the toolbar rail to a single button, or expand it back
+- **Refresh** — re-read note frontmatter and redraw; a map reads the vault once when the block renders, so edits to mapped notes only show after a refresh (filters/view/collapse carry over, pan/zoom does not)
 - **Fullscreen** · **Reset** clears filters/search/collapse/focus and returns to the default view · drag to pan, scroll to zoom
 
 ## Causal maps (systems thinking)

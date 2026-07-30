@@ -227,6 +227,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 4px;
 }
 
 /* focus banner: the label ellipsises, the ✕ always stays visible at the right */
