@@ -8,6 +8,12 @@ updates:
       # one grouped PR for all npm dependency updates
       npm-dependencies:
         patterns: ["*"]
+    ignore:
+      # typescript-eslint still peers typescript <6.1; drop once it supports TS 7
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
+      # pinned to engines.vscode; bump both together by hand
+      - dependency-name: "@types/vscode"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
